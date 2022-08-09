@@ -1,0 +1,45 @@
+
+# The interval at which alerts will be scraped and sent to the alerts channel
+scrapeIntervalMinutes: 30
+
+prometheus:
+
+  # The endpoint to scrape for alerts.
+  endpoint:
+
+  # # (Optional) Basic auth username and password.
+  # username:
+  # password:
+
+  # (Optional) Scrape timeout. Defaults to 5 seconds.
+  # timeoutSeconds: 5
+
+database:
+
+  # The MongoDB URI.
+  uri:
+
+  # The name of the database to use.
+  database: "minialert"
+
+bot:
+
+  # The bot token.
+  token:
+
+  # The client ID.
+  clientId:
+
+  # The permissions integer represented as a string.
+  # Discord provides resources to help determine the permissions number:
+  # https://discord.com/developers/docs/topics/community-resources#permission-calculators
+  permissions:
+
+  # (Optional) The list of scopes which the bot requires.
+  # Defaults to "bot", "application.commands".
+  scopes:
+    - bot
+    - applications.commands
+
+  # The ID of the guild where the alerts will be sent.
+  guildId:
