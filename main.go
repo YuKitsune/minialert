@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
 	"github.com/yukitsune/minialert/config"
 	"github.com/yukitsune/minialert/db"
 	"github.com/yukitsune/minialert/prometheus"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,7 +17,14 @@ func main() {
 
 	shutdownChan := getShutdownSignalChan()
 
-	cfg, _ := config.Setup()
+	// Build the logger now so we can log stuff
+	// We'll configure it once we've loaded the config
+	logger := logrus.New()
+
+	cfg, _ := config.Setup(logger)
+	configureLogging(logger, cfg.Log())
+
+	cfg.Debug(logger.WriterLevel(logrus.DebugLevel))
 
 	client := http.Client{
 		Timeout: cfg.Prometheus().Timeout(),
@@ -47,14 +54,14 @@ func main() {
 	dbFunc := db.SetupInMemoryDatabase()
 
 	go func() {
-		err := RunBot(ctx, cfg.Bot(), dbFunc, promClient, alertsChan)
+		err := RunBot(ctx, cfg.Bot(), logger, dbFunc, promClient, alertsChan)
 
 		if err != nil {
 			errorsChan <- err
 		}
 	}()
 
-	waitForSignal(shutdownChan, errorsChan)
+	waitForSignal(logger, shutdownChan, errorsChan)
 }
 
 func scrape(period time.Duration, prometheusClient *prometheus.Client, alertsChan chan prometheus.Alerts, errChan chan error) {
@@ -83,13 +90,19 @@ func getShutdownSignalChan() chan os.Signal {
 	return shutdownSignalChan
 }
 
-func waitForSignal(shutdownSignalChan chan os.Signal, errorChan chan error) {
+func waitForSignal(logger *logrus.Logger, shutdownSignalChan chan os.Signal, errorChan chan error) {
 	select {
 	case sig := <-shutdownSignalChan:
-		log.Printf("signal caught: %s\n", sig.String())
+		logger.Infof("Signal caught: %s\n", sig.String())
 		break
 	case err := <-errorChan:
-		log.Printf("error: %s\n", err.Error())
+		logger.Errorf("Error: %s\n", err.Error())
 		break
 	}
+}
+
+func configureLogging(logger *logrus.Logger, cfg config.Log) {
+
+	lvl := cfg.Level()
+	logger.SetLevel(lvl)
 }

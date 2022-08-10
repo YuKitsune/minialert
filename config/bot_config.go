@@ -50,6 +50,8 @@ func (c *viperBotConfig) Scopes() []string {
 	return scopes
 }
 
+// Todo: Remove
+
 func (c *viperBotConfig) GuildId() string {
 	if !c.v.IsSet("bot.guildId") {
 		panic("no discord guild id was provided")

@@ -1,7 +1,9 @@
 package config
 
 import (
+	"fmt"
 	"github.com/spf13/viper"
+	"io"
 	"time"
 )
 
@@ -10,6 +12,8 @@ type Config interface {
 	Prometheus() Prometheus
 	Database() Database
 	Bot() Bot
+	Log() Log
+	Debug(w io.Writer)
 }
 
 type viperConfig struct {
@@ -17,6 +21,7 @@ type viperConfig struct {
 	prom *viperPrometheusConfig
 	db   *viperDatabaseConfig
 	bot  *viperBotConfig
+	log  *viperLogConfig
 }
 
 func NewConfigProvider(v *viper.Viper) Config {
@@ -25,6 +30,7 @@ func NewConfigProvider(v *viper.Viper) Config {
 		prom: &viperPrometheusConfig{v},
 		db:   &viperDatabaseConfig{v},
 		bot:  &viperBotConfig{v},
+		log:  &viperLogConfig{v},
 	}
 }
 
@@ -43,4 +49,12 @@ func (c *viperConfig) Database() Database {
 
 func (c *viperConfig) Bot() Bot {
 	return c.bot
+}
+
+func (c *viperConfig) Log() Log {
+	return c.log
+}
+
+func (c *viperConfig) Debug(w io.Writer) {
+	fmt.Fprintf(w, "%#v", c.v.AllSettings())
 }

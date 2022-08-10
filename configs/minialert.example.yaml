@@ -43,3 +43,9 @@ bot:
 
   # The ID of the guild where the alerts will be sent.
   guildId:
+
+log:
+
+  # (Optional) The level of logging.
+  # Defaults to "info"
+  level: info

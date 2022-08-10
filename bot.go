@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
+	"github.com/sirupsen/logrus"
 	"github.com/yukitsune/minialert/config"
 	"github.com/yukitsune/minialert/db"
 	"github.com/yukitsune/minialert/prometheus"
-	"log"
 	"strconv"
 	"strings"
 )
@@ -39,7 +39,7 @@ func (c CommandOption) String() string {
 	return string(c)
 }
 
-type CommandHandler func(s *discordgo.Session, i *discordgo.InteractionCreate)
+type CommandHandler func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger)
 type CommandHandlers map[CommandName]CommandHandler
 
 func getCommands() []*discordgo.ApplicationCommand {
@@ -123,7 +123,7 @@ func getOptionMap(options []*discordgo.ApplicationCommandInteractionDataOption) 
 	return optionMap
 }
 
-func respond(s *discordgo.Session, i *discordgo.InteractionCreate, message string) {
+func respond(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger, message string) {
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
@@ -132,37 +132,37 @@ func respond(s *discordgo.Session, i *discordgo.InteractionCreate, message strin
 	})
 
 	if err != nil {
-		log.Printf("Failed to respond to interaction %s: %s", i.ID, err.Error())
+		logger.Errorf("Failed to respond: %s", err.Error())
 	}
 }
 
-func respondWithSuccess(s *discordgo.Session, i *discordgo.InteractionCreate, message string) {
-	respond(s, i, fmt.Sprintf("✅ %s", message))
+func respondWithSuccess(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger, message string) {
+	respond(s, i, logger, fmt.Sprintf("✅ %s", message))
 }
 
-func respondWithWarning(s *discordgo.Session, i *discordgo.InteractionCreate, message string) {
-	respond(s, i, fmt.Sprintf("⚠️ %s", message))
+func respondWithWarning(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger, message string) {
+	respond(s, i, logger, fmt.Sprintf("⚠️ %s", message))
 }
 
-func respondWithError(s *discordgo.Session, i *discordgo.InteractionCreate, message string) {
-	respond(s, i, fmt.Sprintf("❌ %s", message))
+func respondWithError(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger, message string) {
+	respond(s, i, logger, fmt.Sprintf("❌ %s", message))
 }
 
 func getAlertsHandler(prometheusClient *prometheus.Client) CommandHandler {
-	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 		alerts, err := prometheusClient.GetAlerts()
 		if err != nil {
-			log.Printf("Failed to get alerts: %s", err.Error())
-			respondWithError(s, i, "Failed to get alerts.")
+			logger.Errorf("Failed to get alerts: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to get alerts.")
 			return
 		}
 
-		sendAlertsToChannel(s, i.ChannelID, alerts)
+		sendAlertsToChannel(s, i.ChannelID, alerts, logger)
 	}
 }
 
 func setAlertsChannelHandler(repo db.Repo) CommandHandler {
-	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
 		opts := getOptionMap(i.ApplicationCommandData().Options)
 
@@ -171,25 +171,25 @@ func setAlertsChannelHandler(repo db.Repo) CommandHandler {
 			channel := channelOption.ChannelValue(s)
 
 			if channel.Type != discordgo.ChannelTypeGuildText {
-				respondWithWarning(s, i, "Alerts channel must be a text channel")
+				respondWithWarning(s, i, logger, "Alerts channel must be a text channel")
 				return
 			}
 
 			err := repo.SetAlertsChannel(context.Background(), i.GuildID, channel.ID)
 			if err != nil {
-				log.Printf("Failed to set alerts channel for guild %s: %s", i.GuildID, err.Error())
-				respondWithError(s, i, "Failed to set alerts channel.")
+				logger.Errorf("Failed to set alerts channel: %s", err.Error())
+				respondWithError(s, i, logger, "Failed to set alerts channel.")
 			}
 
-			respondWithSuccess(s, i, "Alerts channel set.")
+			respondWithSuccess(s, i, logger, "Alerts channel set.")
 		} else {
-			respondWithWarning(s, i, "Channel option is required.")
+			respondWithWarning(s, i, logger, "Channel option is required.")
 		}
 	}
 }
 
 func setAdminHandler(repo db.Repo) CommandHandler {
-	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
 		opts := getOptionMap(i.ApplicationCommandData().Options)
 
@@ -202,25 +202,26 @@ func setAdminHandler(repo db.Repo) CommandHandler {
 			err := repo.SetAdminUser(context.Background(), i.GuildID, user.ID)
 
 			if err != nil {
-				log.Printf("Failed to set admin user for guild %s: %s", i.GuildID, err.Error())
-				respondWithError(s, i, "Failed to set admin user.")
+				logger.Errorf("Failed to set admin user: %s", err.Error())
+				respondWithError(s, i, logger, "Failed to set admin user.")
 			}
 
-			respondWithSuccess(s, i, "Admin user set.")
+			respondWithSuccess(s, i, logger, "Admin user set.")
 		} else {
-			respondWithWarning(s, i, "User option is required.")
+			respondWithWarning(s, i, logger, "User option is required.")
 		}
 	}
 }
 
 func showInhibitedAlertsHandler() CommandHandler {
-	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		panic("not implemented!")
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
+		logger.Errorln("Not implemented")
+		respondWithError(s, i, logger, "Not implemented")
 	}
 }
 
 func inhibitAlertHandler(repo db.Repo) CommandHandler {
-	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
 		opts := getOptionMap(i.ApplicationCommandData().Options)
 
@@ -230,20 +231,20 @@ func inhibitAlertHandler(repo db.Repo) CommandHandler {
 
 			err := repo.CreateInhibition(context.Background(), i.GuildID, alertName)
 			if err != nil {
-				log.Printf("Failed to add inhibition for guild %s: %s", i.GuildID, err.Error())
-				respondWithError(s, i, "Failed to add inhibition.")
+				logger.Errorf("Failed to add inhibition: %s", err.Error())
+				respondWithError(s, i, logger, "Failed to add inhibition.")
 			}
 
-			respondWithSuccess(s, i, "Inhibition added.")
+			respondWithSuccess(s, i, logger, "Inhibition added.")
 
 		} else {
-			respondWithWarning(s, i, "Could not find alert name option.")
+			respondWithWarning(s, i, logger, "Could not find alert name option.")
 		}
 	}
 }
 
 func uninhibitAlertHandler(repo db.Repo) CommandHandler {
-	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
 		opts := getOptionMap(i.ApplicationCommandData().Options)
 
@@ -253,82 +254,89 @@ func uninhibitAlertHandler(repo db.Repo) CommandHandler {
 
 			err := repo.DeleteInhibition(context.Background(), i.GuildID, alertName)
 			if err != nil {
-				log.Printf("Failed to remove inhibition for guild %s: %s", i.GuildID, err.Error())
-				respondWithError(s, i, "Failed to remove inhibition.")
+				logger.Errorf("Failed to remove inhibition: %s", err.Error())
+				respondWithError(s, i, logger, "Failed to remove inhibition.")
 			}
 
-			respondWithSuccess(s, i, "Inhibition removed.")
+			respondWithSuccess(s, i, logger, "Inhibition removed.")
 
 		} else {
-			respondWithWarning(s, i, "Could not find alert name option.")
+			respondWithWarning(s, i, logger, "Could not find alert name option.")
 		}
 	}
 }
 
-func onReadyHandler(cfg config.Bot) func(s *discordgo.Session, r *discordgo.Ready) {
+func onReadyHandler(cfg config.Bot, logger logrus.FieldLogger) func(s *discordgo.Session, r *discordgo.Ready) {
 	return func(s *discordgo.Session, r *discordgo.Ready) {
-		log.Printf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
+		logger.Infof("✅  Logged in as: %s#%s", s.State.User.Username, s.State.User.Discriminator)
 
 		inviteLink := getInviteLink(cfg)
-		log.Printf("Invite link: %s", inviteLink)
+		logger.Infof("🔗 Invite link: %s", inviteLink)
 	}
 }
 
-func onInteractionCreateHandler(handlers CommandHandlers) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func onInteractionCreateHandler(handlers CommandHandlers, logger logrus.FieldLogger) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
-		log.Printf("interaction created: %s", i.Interaction.Type.String())
+		entry := logger.WithField("guild_id", i.GuildID).
+			WithField("interaction_id", i.Interaction.ID).
+			WithField("interaction_type", i.Interaction.Type.String()).
+			WithField("interaction_name", i.ApplicationCommandData().Name)
+
+		entry.Debugln("interaction created")
 
 		if h, ok := handlers[CommandName(i.ApplicationCommandData().Name)]; ok {
-			h(s, i)
+			h(s, i, entry)
 		}
 	}
 }
 
-func onGuildCreated(commands []*discordgo.ApplicationCommand, repo db.Repo) func(s *discordgo.Session, i *discordgo.GuildCreate) {
+func onGuildCreated(commands []*discordgo.ApplicationCommand, repo db.Repo, logger logrus.FieldLogger) func(s *discordgo.Session, i *discordgo.GuildCreate) {
 	return func(s *discordgo.Session, i *discordgo.GuildCreate) {
 
-		log.Printf("guild created: '%s' (%s)", i.Guild.Name, i.Guild.ID)
+		ctxLogger := logger.WithField("guild_id", i.Guild.ID)
+		ctxLogger.Debugln("Guild created")
 
 		for _, v := range commands {
 			cmd, err := s.ApplicationCommandCreate(s.State.User.ID, i.Guild.ID, v)
 			if err != nil {
-				log.Printf("Cannot create '%v' command: %v", v.Name, err)
+				ctxLogger.Errorf("Cannot create '%v' command: %v", v.Name, err)
 			}
 
-			log.Printf("Created '%v' command", v.Name)
+			ctxLogger.Debugf("Created '%v' command", v.Name)
 			err = repo.RegisterCommand(context.Background(), i.Guild.ID, cmd.ID, cmd.Name)
 			if err != nil {
-				log.Printf("Failed to create commands for guild %s: %s", i.Guild.ID, err.Error())
+				ctxLogger.Errorf("Failed to register command: %s", err.Error())
 			}
 		}
 	}
 }
 
-func onGuildDeleted(repo db.Repo) func(s *discordgo.Session, i *discordgo.GuildDelete) {
+func onGuildDeleted(repo db.Repo, logger logrus.FieldLogger) func(s *discordgo.Session, i *discordgo.GuildDelete) {
 	return func(s *discordgo.Session, i *discordgo.GuildDelete) {
 
-		log.Printf("guild deleted: %s (%s)", i.Guild.Name, i.Guild.ID)
+		ctxLogger := logger.WithField("guild_id", i.Guild.ID)
+		ctxLogger.Debugln("Guild deleted")
 
 		ctx := context.Background()
 
 		commands, err := repo.GetRegisteredCommand(ctx, i.Guild.ID)
 		if err != nil {
-			log.Printf("Failed to get commands for guild %s: %s", i.Guild.ID, err.Error())
+			ctxLogger.Errorf("Failed to get commands: %s", err.Error())
 			return
 		}
 
 		// Delete commands from guild
 		for _, v := range commands {
-			err := s.ApplicationCommandDelete(s.State.User.ID, i.Guild.ID, v.CommandId)
+			err = s.ApplicationCommandDelete(s.State.User.ID, i.Guild.ID, v.CommandId)
 			if err != nil {
-				log.Panicf("Cannot delete '%v' command %v", v.CommandName, err)
+				ctxLogger.Errorf("Cannot delete '%v' command: %v", v.CommandName, err.Error())
 			}
 		}
 
 		err = repo.ClearGuildInfo(ctx, i.Guild.ID)
 		if err != nil {
-			log.Printf("Failed to clear data for guild %s: %s", i.Guild.ID, err.Error())
+			ctxLogger.Errorf("Failed to clear guild data: %s", err.Error())
 			return
 		}
 	}
@@ -340,25 +348,25 @@ func getInviteLink(cfg config.Bot) string {
 	return link
 }
 
-func RunBot(ctx context.Context, cfg config.Bot, repo db.Repo, prometheusClient *prometheus.Client, alertsChan chan prometheus.Alerts) error {
+func RunBot(ctx context.Context, cfg config.Bot, logger logrus.FieldLogger, repo db.Repo, prometheusClient *prometheus.Client, alertsChan chan prometheus.Alerts) error {
 
 	commands := getCommands()
 	commandHandlers := getCommandHandlers(prometheusClient, repo)
 
 	// Create a new Discord session using the provided bot token.
-	log.Println("Creating session...")
+	logger.Infoln("📡 Creating session...")
 	s, err := discordgo.New("Bot " + cfg.Token())
 	if err != nil {
 		return fmt.Errorf("failed to create Discord session: %s", err.Error())
 	}
 
 	// Configure event handlers
-	s.AddHandler(onReadyHandler(cfg))
-	s.AddHandler(onGuildCreated(commands, repo))
-	s.AddHandler(onInteractionCreateHandler(commandHandlers))
-	s.AddHandler(onGuildDeleted(repo))
+	s.AddHandler(onReadyHandler(cfg, logger))
+	s.AddHandler(onGuildCreated(commands, repo, logger))
+	s.AddHandler(onInteractionCreateHandler(commandHandlers, logger))
+	s.AddHandler(onGuildDeleted(repo, logger))
 
-	log.Println("Opening session...")
+	logger.Infoln("📡 Opening session...")
 	err = s.Open()
 	if err != nil {
 		return fmt.Errorf("cannot open session: %s", err.Error())
@@ -366,7 +374,7 @@ func RunBot(ctx context.Context, cfg config.Bot, repo db.Repo, prometheusClient 
 
 	defer s.Close()
 
-	go sendAlerts(ctx, s, cfg.GuildId(), repo, alertsChan)
+	go sendAlerts(ctx, s, cfg.GuildId(), repo, logger, alertsChan)
 
 	<-ctx.Done()
 
@@ -397,18 +405,17 @@ func getFieldsFromLabels(alert prometheus.Alert) []*discordgo.MessageEmbedField 
 	return fields
 }
 
-func sendAlerts(ctx context.Context, s *discordgo.Session, guildId string, repo db.Repo, alertsChan chan prometheus.Alerts) {
+func sendAlerts(ctx context.Context, s *discordgo.Session, guildId string, repo db.Repo, logger logrus.FieldLogger, alertsChan chan prometheus.Alerts) {
 	for {
 		select {
 		case alerts := <-alertsChan:
-
 			alertsChannel, err := repo.GetAlertsChannel(ctx, guildId)
 			if err != nil {
-				log.Printf("Failed to get alerts channel: %s", err.Error())
+				logger.Debugf("Failed to get alerts channel: %s", err.Error())
 				continue
 			}
 
-			sendAlertsToChannel(s, alertsChannel.ChannelId, alerts)
+			sendAlertsToChannel(s, alertsChannel.ChannelId, alerts, logger)
 
 		case <-ctx.Done():
 			break
@@ -416,7 +423,7 @@ func sendAlerts(ctx context.Context, s *discordgo.Session, guildId string, repo 
 	}
 }
 
-func sendAlertsToChannel(s *discordgo.Session, channelId string, alerts prometheus.Alerts) {
+func sendAlertsToChannel(s *discordgo.Session, channelId string, alerts prometheus.Alerts, logger logrus.FieldLogger) {
 	for _, alert := range alerts {
 
 		title := alert.Labels["alertname"]
@@ -424,7 +431,7 @@ func sendAlertsToChannel(s *discordgo.Session, channelId string, alerts promethe
 		description := alert.Annotations["description"]
 		color, err := getColorFromSeverity(alert.Labels["severity"])
 		if err != nil {
-			log.Panicf("Failed to generate color for alert: %s\n", err.Error())
+			logger.Errorf("Failed to generate color for alert: %s", err.Error())
 		}
 
 		fields := getFieldsFromLabels(alert)
@@ -458,7 +465,7 @@ func sendAlertsToChannel(s *discordgo.Session, channelId string, alerts promethe
 
 		_, err = s.ChannelMessageSendComplex(channelId, message)
 		if err != nil {
-			log.Panicf("Failed to send message: %s\n", err.Error())
+			logger.Errorf("Failed to send message to channel %s: %s\n", channelId, err.Error())
 		}
 	}
 }

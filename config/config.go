@@ -1,13 +1,13 @@
 package config
 
 import (
-	"fmt"
 	"github.com/fsnotify/fsnotify"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"strings"
 )
 
-func Setup() (Config, error) {
+func Setup(logger logrus.FieldLogger) (Config, error) {
 
 	v := viper.New()
 
@@ -17,6 +17,7 @@ func Setup() (Config, error) {
 	v.SetDefault("prometheus.password", "")
 	v.SetDefault("prometheus.timeoutSeconds", 5)
 	v.SetDefault("database.scopes", []string{"bot", "application.commands"})
+	v.SetDefault("log.level", "info")
 
 	// Environment variables
 	v.SetEnvPrefix("MINIALERT")
@@ -34,24 +35,16 @@ func Setup() (Config, error) {
 	// Watch for changes
 	v.WatchConfig()
 	v.OnConfigChange(func(e fsnotify.Event) {
-		// Todo: Log
-		fmt.Println("Config file changed:", e.Name)
+		logger.Infof("Config file changed: ", e.Name)
 	})
 
 	// Load config from file
 	err := v.ReadInConfig()
 	if err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found; ignore error
-			// Todo: trace logs
-			fmt.Println("No config file found")
-		} else {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			return nil, err
 		}
 	}
-
-	// Todo: Hide behind debug flag
-	v.Debug()
 
 	return NewConfigProvider(v), nil
 }
