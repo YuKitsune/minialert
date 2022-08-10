@@ -374,7 +374,7 @@ func RunBot(ctx context.Context, cfg config.Bot, logger logrus.FieldLogger, repo
 
 	defer s.Close()
 
-	go sendAlerts(ctx, s, cfg.GuildId(), repo, logger, alertsChan)
+	go watchAlerts(ctx, s, cfg.GuildId(), repo, logger, alertsChan)
 
 	<-ctx.Done()
 
@@ -405,7 +405,7 @@ func getFieldsFromLabels(alert prometheus.Alert) []*discordgo.MessageEmbedField 
 	return fields
 }
 
-func sendAlerts(ctx context.Context, s *discordgo.Session, guildId string, repo db.Repo, logger logrus.FieldLogger, alertsChan chan prometheus.Alerts) {
+func watchAlerts(ctx context.Context, s *discordgo.Session, guildId string, repo db.Repo, logger logrus.FieldLogger, alertsChan chan prometheus.Alerts) {
 	for {
 		select {
 		case alerts := <-alertsChan:

@@ -13,6 +13,13 @@ import (
 	"time"
 )
 
+// Todo:
+// 	1. The goroutines and channels are kinda wacky... Let's fix them...
+// 	2. Implement inhibit button callback
+// 	3. Filter alerts by inhibitions
+// 	4. Implement cobra
+// 	5. Dockerize and mongo-ize(?)
+
 func main() {
 
 	shutdownChan := getShutdownSignalChan()
