@@ -49,6 +49,7 @@ type Repo interface {
 	GetAlertsChannel(ctx context.Context, guildId string) (*AlertsChannel, error)
 	SetAdminUser(ctx context.Context, guildId string, channelId string) error
 	CreateInhibition(ctx context.Context, guildId string, alertName string) error
+	GetInhibitions(ctx context.Context, guildId string) ([]Inhibition, error)
 	DeleteInhibition(ctx context.Context, guildId string, alertName string) error
 	ClearGuildInfo(ctx context.Context, guildId string) error
 }

@@ -126,7 +126,6 @@ func (r *lazyMongoRepo) GetAlertsChannel(ctx context.Context, guildId string) (*
 		coll := db.Collection(AlertChannelsCollection.String())
 
 		filter := bson.D{{"guild_id", guildId}}
-
 		res := coll.FindOne(ctx, filter)
 		if res.Err() != nil {
 			return res.Err()
@@ -185,6 +184,34 @@ func (r *lazyMongoRepo) CreateInhibition(ctx context.Context, guildId string, al
 
 		return nil
 	})
+}
+
+func (r *lazyMongoRepo) GetInhibitions(ctx context.Context, guildId string) ([]Inhibition, error) {
+
+	var inhibitions []Inhibition
+
+	err := r.dbFunc(ctx, func(ctx context.Context, db *mongo.Database) error {
+		coll := db.Collection(InhibitionsCollection.String())
+
+		filter := bson.D{{"guild_id", guildId}}
+		cur, err := coll.Find(ctx, filter)
+		if err != nil {
+			return err
+		}
+
+		err = cur.All(ctx, &inhibitions)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return inhibitions, nil
 }
 
 func (r *lazyMongoRepo) DeleteInhibition(ctx context.Context, guildId string, alertName string) error {

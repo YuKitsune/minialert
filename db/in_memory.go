@@ -70,6 +70,17 @@ func (r *inMemoryRepo) CreateInhibition(_ context.Context, guildId string, alert
 	return nil
 }
 
+func (r *inMemoryRepo) GetInhibitions(_ context.Context, guildId string) ([]Inhibition, error) {
+	var inhibitions []Inhibition
+	for _, inhibition := range r.inhibitions {
+		if inhibition.GuildId == guildId {
+			inhibitions = append(inhibitions, inhibition)
+		}
+	}
+
+	return inhibitions, nil
+}
+
 func (r *inMemoryRepo) DeleteInhibition(_ context.Context, guildId string, alertName string) error {
 	r.inhibitions = removeMatching(r.inhibitions, func(inhibition Inhibition) bool {
 		return inhibition.GuildId == guildId && inhibition.AlertName == alertName

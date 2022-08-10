@@ -105,7 +105,7 @@ func getCommands() []*discordgo.ApplicationCommand {
 
 func getCommandHandlers(prometheusClient *prometheus.Client, repo db.Repo) CommandHandlers {
 	return map[CommandName]CommandHandler{
-		GetAlertsCommandName:           getAlertsHandler(prometheusClient),
+		GetAlertsCommandName:           getAlertsHandler(prometheusClient, repo),
 		SetAlertsChannelCommandName:    setAlertsChannelHandler(repo),
 		SetAdminCommandName:            setAdminHandler(repo),
 		ShowInhibitedAlertsCommandName: showInhibitedAlertsHandler(),
@@ -148,7 +148,7 @@ func respondWithError(s *discordgo.Session, i *discordgo.InteractionCreate, logg
 	respond(s, i, logger, fmt.Sprintf("❌ %s", message))
 }
 
-func getAlertsHandler(prometheusClient *prometheus.Client) CommandHandler {
+func getAlertsHandler(prometheusClient *prometheus.Client, repo db.Repo) CommandHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 		alerts, err := prometheusClient.GetAlerts()
 		if err != nil {
@@ -157,7 +157,14 @@ func getAlertsHandler(prometheusClient *prometheus.Client) CommandHandler {
 			return
 		}
 
-		sendAlertsToChannel(s, i.ChannelID, alerts, logger)
+		filteredAlerts, err := filterAlerts(context.Background(), repo, i.GuildID, alerts)
+		if err != nil {
+			logger.Errorf("Failed to filter alerts: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to filter alerts.")
+			return
+		}
+
+		sendAlertsToChannel(s, i.ChannelID, filteredAlerts, logger)
 	}
 }
 
@@ -415,12 +422,48 @@ func watchAlerts(ctx context.Context, s *discordgo.Session, guildId string, repo
 				continue
 			}
 
-			sendAlertsToChannel(s, alertsChannel.ChannelId, alerts, logger)
+			filteredAlerts, err := filterAlerts(ctx, repo, guildId, alerts)
+			if err != nil {
+				logger.Errorf("Failed to filter alerts: %s", err.Error())
+				continue
+			}
+
+			sendAlertsToChannel(s, alertsChannel.ChannelId, filteredAlerts, logger)
 
 		case <-ctx.Done():
 			break
 		}
 	}
+}
+
+func filterAlerts(ctx context.Context, repo db.Repo, guildId string, alerts prometheus.Alerts) (prometheus.Alerts, error) {
+
+	inhibitions, err := repo.GetInhibitions(ctx, guildId)
+	if err != nil {
+		return nil, err
+	}
+
+	var newAlerts prometheus.Alerts
+	for _, alert := range alerts {
+		if !hasMatching(inhibitions, func(inhibition db.Inhibition) bool {
+			alertName := alert.Labels["alertname"]
+			return inhibition.AlertName == alertName
+		}) {
+			newAlerts = append(newAlerts, alert)
+		}
+	}
+
+	return newAlerts, nil
+}
+
+func hasMatching[T any](ts []T, fn func(v T) bool) bool {
+	for _, t := range ts {
+		if fn(t) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func sendAlertsToChannel(s *discordgo.Session, channelId string, alerts prometheus.Alerts, logger logrus.FieldLogger) {
