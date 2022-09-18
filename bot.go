@@ -140,7 +140,7 @@ func getInteractionHandlers(prometheusClient *prometheus.Client, repo db.Repo) I
 		GetAlertsCommandName:           getAlertsHandler(prometheusClient, repo),
 		SetAlertsChannelCommandName:    setAlertsChannelHandler(repo),
 		SetAdminCommandName:            setAdminHandler(repo),
-		ShowInhibitedAlertsCommandName: showInhibitedAlertsHandler(),
+		ShowInhibitedAlertsCommandName: showInhibitedAlertsHandler(repo),
 		InhibitAlertCommandName:        inhibitAlertHandler(repo),
 		UninhibitAlertCommandName:      uninhibitAlertHandler(repo),
 	}
@@ -258,10 +258,28 @@ func setAdminHandler(repo db.Repo) InteractionHandler {
 	}
 }
 
-func showInhibitedAlertsHandler() InteractionHandler {
+func showInhibitedAlertsHandler(repo db.Repo) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
-		logger.Errorln("Not implemented")
-		respondWithError(s, i, logger, "Not implemented")
+		inhibitions, err := repo.GetInhibitions(context.Background(), i.GuildID)
+		if err != nil {
+			logger.Errorf("Failed to get inhibitions: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to get inhibitions.")
+		}
+
+		if len(inhibitions) == 0 {
+			respond(s, i, logger, "No inhibitions found.")
+			return
+		}
+
+		var content string
+		for i2, inhibition := range inhibitions {
+			content += inhibition.AlertName
+			if i2 != len(inhibitions)-1 {
+				content += ", "
+			}
+		}
+
+		respond(s, i, logger, content)
 	}
 }
 

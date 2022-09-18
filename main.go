@@ -15,12 +15,8 @@ import (
 
 // Todo:
 // 	1. The goroutines and channels are kinda wacky... Let's fix them...
-// 	2. Implement inhibit button callback
-// 	3. Add commands for:
-// 		- List inhibitions
-// 		- List inhibited alerts
-// 	4. Implement cobra
-// 	5. Dockerize and mongo-ize(?)
+// 	2. Implement cobra
+// 	3. Dockerize and mongo-ize(?)
 
 func main() {
 
