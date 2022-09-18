@@ -12,35 +12,67 @@ import (
 	"strings"
 )
 
-type CommandName string
+type InteractionName string
 
 const (
-	GetAlertsCommandName           CommandName = "get-alerts"
-	SetAlertsChannelCommandName    CommandName = "set-alerts-channel"
-	SetAdminCommandName            CommandName = "set-admin"
-	ShowInhibitedAlertsCommandName CommandName = "show-inhibited-alerts"
-	InhibitAlertCommandName        CommandName = "inhibit-alert"
-	UninhibitAlertCommandName      CommandName = "uninhibit-alert"
+	GetAlertsCommandName           InteractionName = "get-alerts"
+	SetAlertsChannelCommandName    InteractionName = "set-alerts-channel"
+	SetAdminCommandName            InteractionName = "set-admin"
+	ShowInhibitedAlertsCommandName InteractionName = "show-inhibited-alerts"
+	InhibitAlertCommandName        InteractionName = "inhibit-alert"
+	UninhibitAlertCommandName      InteractionName = "uninhibit-alert"
 )
 
-func (c CommandName) String() string {
+func (c InteractionName) String() string {
 	return string(c)
 }
 
-type CommandOption string
+type InteractionOption string
 
 const (
-	ChannelOption   CommandOption = "channel"
-	UserOption      CommandOption = "user"
-	AlertNameOption CommandOption = "alertname"
+	ChannelOption   InteractionOption = "channel"
+	UserOption      InteractionOption = "user"
+	AlertNameOption InteractionOption = "alertname"
 )
 
-func (c CommandOption) String() string {
+func (c InteractionOption) String() string {
 	return string(c)
 }
 
-type CommandHandler func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger)
-type CommandHandlers map[CommandName]CommandHandler
+type InteractionHandler func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger)
+type InteractionHandlers map[InteractionName]InteractionHandler
+
+const MessageInteractionIdSeparator = ":"
+
+type MessageInteractionId string
+
+func (id MessageInteractionId) Name() (InteractionName, bool) {
+	parts := strings.Split(id.String(), MessageInteractionIdSeparator)
+	if len(parts) != 2 {
+		return "", false
+	}
+
+	return InteractionName(parts[0]), true
+}
+
+func (id MessageInteractionId) Value() (string, bool) {
+	parts := strings.Split(id.String(), MessageInteractionIdSeparator)
+	if len(parts) != 2 {
+		return "", false
+	}
+
+	return parts[1], true
+}
+
+func (id MessageInteractionId) String() string {
+	return string(id)
+}
+
+func NewMessageInteractionId(name InteractionName, value string) MessageInteractionId {
+	return MessageInteractionId(fmt.Sprintf("%s%s%s", name, MessageInteractionIdSeparator, value))
+}
+
+type MessageInteractionHandlers map[InteractionName]InteractionHandler
 
 func getCommands() []*discordgo.ApplicationCommand {
 	return []*discordgo.ApplicationCommand{
@@ -103,8 +135,8 @@ func getCommands() []*discordgo.ApplicationCommand {
 	}
 }
 
-func getCommandHandlers(prometheusClient *prometheus.Client, repo db.Repo) CommandHandlers {
-	return map[CommandName]CommandHandler{
+func getInteractionHandlers(prometheusClient *prometheus.Client, repo db.Repo) InteractionHandlers {
+	return map[InteractionName]InteractionHandler{
 		GetAlertsCommandName:           getAlertsHandler(prometheusClient, repo),
 		SetAlertsChannelCommandName:    setAlertsChannelHandler(repo),
 		SetAdminCommandName:            setAdminHandler(repo),
@@ -114,10 +146,16 @@ func getCommandHandlers(prometheusClient *prometheus.Client, repo db.Repo) Comma
 	}
 }
 
-func getOptionMap(options []*discordgo.ApplicationCommandInteractionDataOption) map[CommandOption]*discordgo.ApplicationCommandInteractionDataOption {
-	optionMap := make(map[CommandOption]*discordgo.ApplicationCommandInteractionDataOption, len(options))
+func getMessageInteractionHandlers(repo db.Repo) MessageInteractionHandlers {
+	return map[InteractionName]InteractionHandler{
+		InhibitAlertCommandName: inhibitAlertFromMessageHandler(repo),
+	}
+}
+
+func getOptionMap(options []*discordgo.ApplicationCommandInteractionDataOption) map[InteractionOption]*discordgo.ApplicationCommandInteractionDataOption {
+	optionMap := make(map[InteractionOption]*discordgo.ApplicationCommandInteractionDataOption, len(options))
 	for _, opt := range options {
-		optionMap[CommandOption(opt.Name)] = opt
+		optionMap[InteractionOption(opt.Name)] = opt
 	}
 
 	return optionMap
@@ -148,7 +186,7 @@ func respondWithError(s *discordgo.Session, i *discordgo.InteractionCreate, logg
 	respond(s, i, logger, fmt.Sprintf("❌ %s", message))
 }
 
-func getAlertsHandler(prometheusClient *prometheus.Client, repo db.Repo) CommandHandler {
+func getAlertsHandler(prometheusClient *prometheus.Client, repo db.Repo) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 		alerts, err := prometheusClient.GetAlerts()
 		if err != nil {
@@ -168,7 +206,7 @@ func getAlertsHandler(prometheusClient *prometheus.Client, repo db.Repo) Command
 	}
 }
 
-func setAlertsChannelHandler(repo db.Repo) CommandHandler {
+func setAlertsChannelHandler(repo db.Repo) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
 		opts := getOptionMap(i.ApplicationCommandData().Options)
@@ -195,7 +233,7 @@ func setAlertsChannelHandler(repo db.Repo) CommandHandler {
 	}
 }
 
-func setAdminHandler(repo db.Repo) CommandHandler {
+func setAdminHandler(repo db.Repo) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
 		opts := getOptionMap(i.ApplicationCommandData().Options)
@@ -220,14 +258,14 @@ func setAdminHandler(repo db.Repo) CommandHandler {
 	}
 }
 
-func showInhibitedAlertsHandler() CommandHandler {
+func showInhibitedAlertsHandler() InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 		logger.Errorln("Not implemented")
 		respondWithError(s, i, logger, "Not implemented")
 	}
 }
 
-func inhibitAlertHandler(repo db.Repo) CommandHandler {
+func inhibitAlertHandler(repo db.Repo) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
 		opts := getOptionMap(i.ApplicationCommandData().Options)
@@ -250,7 +288,7 @@ func inhibitAlertHandler(repo db.Repo) CommandHandler {
 	}
 }
 
-func uninhibitAlertHandler(repo db.Repo) CommandHandler {
+func uninhibitAlertHandler(repo db.Repo) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
 		opts := getOptionMap(i.ApplicationCommandData().Options)
@@ -273,6 +311,26 @@ func uninhibitAlertHandler(repo db.Repo) CommandHandler {
 	}
 }
 
+func inhibitAlertFromMessageHandler(repo db.Repo) InteractionHandler {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
+
+		customId := MessageInteractionId(i.Interaction.MessageComponentData().CustomID)
+		alertName, ok := customId.Value()
+		if !ok {
+			respondWithWarning(s, i, logger, fmt.Sprintf("Received unknown custom_id: %s", customId))
+			return
+		}
+
+		err := repo.CreateInhibition(context.Background(), i.GuildID, alertName)
+		if err != nil {
+			logger.Errorf("Failed to add inhibition: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to add inhibition.")
+		}
+
+		respondWithSuccess(s, i, logger, "Inhibition added.")
+	}
+}
+
 func onReadyHandler(cfg config.Bot, logger logrus.FieldLogger) func(s *discordgo.Session, r *discordgo.Ready) {
 	return func(s *discordgo.Session, r *discordgo.Ready) {
 		logger.Infof("✅  Logged in as: %s#%s", s.State.User.Username, s.State.User.Discriminator)
@@ -282,18 +340,37 @@ func onReadyHandler(cfg config.Bot, logger logrus.FieldLogger) func(s *discordgo
 	}
 }
 
-func onInteractionCreateHandler(handlers CommandHandlers, logger logrus.FieldLogger) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func onInteractionCreateHandler(interactionHandlers InteractionHandlers, messageInteractionHandlers MessageInteractionHandlers, logger logrus.FieldLogger) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 		entry := logger.WithField("guild_id", i.GuildID).
 			WithField("interaction_id", i.Interaction.ID).
-			WithField("interaction_type", i.Interaction.Type.String()).
-			WithField("interaction_name", i.ApplicationCommandData().Name)
+			WithField("interaction_type", i.Interaction.Type.String())
+
+		if i.Type == discordgo.InteractionApplicationCommand {
+			entry = entry.WithField("interaction_name", i.ApplicationCommandData().Name)
+		} else if i.Type == discordgo.InteractionMessageComponent {
+			entry = entry.WithField("interaction_custom_id", i.Interaction.MessageComponentData().CustomID)
+		}
 
 		entry.Debugln("interaction created")
 
-		if h, ok := handlers[CommandName(i.ApplicationCommandData().Name)]; ok {
-			h(s, i, entry)
+		if i.Type == discordgo.InteractionApplicationCommand {
+			if h, ok := interactionHandlers[InteractionName(i.ApplicationCommandData().Name)]; ok {
+				h(s, i, entry)
+			}
+		} else if i.Type == discordgo.InteractionMessageComponent {
+			customId := MessageInteractionId(i.Interaction.MessageComponentData().CustomID)
+			commandName, ok := customId.Name()
+			if !ok {
+				entry.Errorf("unable to determine command name or value from custom_id: %s", customId)
+			}
+
+			if h, ok := messageInteractionHandlers[commandName]; ok {
+				h(s, i, entry)
+			}
+		} else {
+			entry.Warnf("unexpected interaction type: %s", i.Type.String())
 		}
 	}
 }
@@ -358,7 +435,8 @@ func getInviteLink(cfg config.Bot) string {
 func RunBot(ctx context.Context, cfg config.Bot, logger logrus.FieldLogger, repo db.Repo, prometheusClient *prometheus.Client, alertsChan chan prometheus.Alerts) error {
 
 	commands := getCommands()
-	commandHandlers := getCommandHandlers(prometheusClient, repo)
+	interactionHandlers := getInteractionHandlers(prometheusClient, repo)
+	componentInteractionHandlers := getMessageInteractionHandlers(repo)
 
 	// Create a new Discord session using the provided bot token.
 	logger.Infoln("📡 Creating session...")
@@ -370,7 +448,7 @@ func RunBot(ctx context.Context, cfg config.Bot, logger logrus.FieldLogger, repo
 	// Configure event handlers
 	s.AddHandler(onReadyHandler(cfg, logger))
 	s.AddHandler(onGuildCreated(commands, repo, logger))
-	s.AddHandler(onInteractionCreateHandler(commandHandlers, logger))
+	s.AddHandler(onInteractionCreateHandler(interactionHandlers, componentInteractionHandlers, logger))
 	s.AddHandler(onGuildDeleted(repo, logger))
 
 	logger.Infoln("📡 Opening session...")
@@ -469,7 +547,9 @@ func hasMatching[T any](ts []T, fn func(v T) bool) bool {
 func sendAlertsToChannel(s *discordgo.Session, channelId string, alerts prometheus.Alerts, logger logrus.FieldLogger) {
 	for _, alert := range alerts {
 
-		title := alert.Labels["alertname"]
+		alertName := alert.Labels["alertname"]
+
+		title := alertName
 		url := alert.Annotations["runbook_url"]
 		description := alert.Annotations["description"]
 		color, err := getColorFromSeverity(alert.Labels["severity"])
@@ -492,7 +572,7 @@ func sendAlertsToChannel(s *discordgo.Session, channelId string, alerts promethe
 		inhibitButtonComponent := discordgo.Button{
 			Label:    "Inhibit",
 			Style:    discordgo.DangerButton,
-			CustomID: "foobar",
+			CustomID: NewMessageInteractionId(InhibitAlertCommandName, alertName).String(),
 		}
 
 		message := &discordgo.MessageSend{
