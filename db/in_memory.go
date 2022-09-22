@@ -3,12 +3,14 @@ package db
 import (
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
 )
 
-func SetupInMemoryDatabase() Repo {
+func SetupInMemoryDatabase(logger logrus.FieldLogger) Repo {
 	repo := &inMemoryRepo{
 		registeredCommands: make([]CommandRegistration, 0),
 		guildConfigs:       make([]GuildConfig, 0),
+		logger:             logger,
 	}
 
 	return repo
@@ -17,6 +19,7 @@ func SetupInMemoryDatabase() Repo {
 type inMemoryRepo struct {
 	registeredCommands []CommandRegistration
 	guildConfigs       []GuildConfig
+	logger             logrus.FieldLogger
 }
 
 func (r *inMemoryRepo) RegisterCommand(_ context.Context, guildId string, commandId string, commandName string) error {
@@ -26,6 +29,8 @@ func (r *inMemoryRepo) RegisterCommand(_ context.Context, guildId string, comman
 		CommandName: commandName,
 	}
 	r.registeredCommands = append(r.registeredCommands, reg)
+
+	r.logger.Debugf("Registering command: %+v", reg)
 
 	return nil
 }
@@ -56,6 +61,9 @@ func (r *inMemoryRepo) GetGuildConfig(_ context.Context, guildId string) (*Guild
 }
 
 func (r *inMemoryRepo) SetGuildConfig(_ context.Context, config *GuildConfig) error {
+
+	r.logger.Debugf("Setting guild config: %+v", config)
+
 	for i, cfg := range r.guildConfigs {
 		if cfg.GuildId == config.GuildId {
 			r.guildConfigs[i] = *config

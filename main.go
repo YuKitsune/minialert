@@ -11,9 +11,8 @@ import (
 )
 
 // Todo:
-//  1. Config not updating
-// 	2. Implement cobra
-// 	3. Dockerize and mongo-ize(?)
+// 	1. Implement cobra
+// 	2. Dockerize and mongo-ize(?)
 
 func main() {
 
@@ -31,7 +30,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	repo := db.SetupInMemoryDatabase()
+	repo := db.SetupInMemoryDatabase(logger)
 
 	errorsChan := make(chan error)
 

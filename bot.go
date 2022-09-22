@@ -670,9 +670,9 @@ func updateScrapeConfigCommandHandler(repo db.Repo, scrapeManager *ScrapeManager
 		}
 
 		var scrapeConfig *db.ScrapeConfig
-		for _, cfg := range guildConfig.ScrapeConfigs {
+		for i, cfg := range guildConfig.ScrapeConfigs {
 			if cfg.Name == configName {
-				scrapeConfig = &cfg
+				scrapeConfig = &guildConfig.ScrapeConfigs[i]
 				break
 			}
 		}
