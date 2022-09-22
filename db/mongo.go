@@ -67,7 +67,7 @@ func (r *lazyMongoRepo) RegisterCommand(ctx context.Context, guildId string, com
 	})
 }
 
-func (r *lazyMongoRepo) GetRegisteredCommand(ctx context.Context, guildId string) ([]CommandRegistration, error) {
+func (r *lazyMongoRepo) GetRegisteredCommands(ctx context.Context, guildId string) ([]CommandRegistration, error) {
 
 	var commands []CommandRegistration
 
@@ -96,110 +96,37 @@ func (r *lazyMongoRepo) GetRegisteredCommand(ctx context.Context, guildId string
 	return commands, nil
 }
 
-func (r *lazyMongoRepo) SetAlertsChannel(ctx context.Context, guildId string, channelId string) error {
-	return r.dbFunc(ctx, func(ctx context.Context, db *mongo.Database) error {
-		coll := db.Collection(AlertChannelsCollection.String())
+func (r *lazyMongoRepo) GetGuildConfigs(ctx context.Context) (cfgs []GuildConfig, err error) {
+	err = r.dbFunc(ctx, func(ctx context.Context, db *mongo.Database) error {
+		coll := db.Collection(GuildConfigCollection.String())
 
-		alertsChannel := AlertsChannel{
-			GuildId:   guildId,
-			ChannelId: channelId,
-		}
+		filter := bson.D{{}}
 
-		filter := bson.D{{"guild_id", guildId}}
-		update := toInterfaceSlice(alertsChannel)
-		upsertOpts := options.Update().SetUpsert(true)
-
-		_, err := coll.UpdateMany(ctx, filter, update, upsertOpts)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-}
-
-func (r *lazyMongoRepo) GetAlertsChannel(ctx context.Context, guildId string) (*AlertsChannel, error) {
-
-	var channel AlertsChannel
-
-	err := r.dbFunc(ctx, func(ctx context.Context, db *mongo.Database) error {
-		coll := db.Collection(AlertChannelsCollection.String())
-
-		filter := bson.D{{"guild_id", guildId}}
-		res := coll.FindOne(ctx, filter)
-		if res.Err() != nil {
-			return res.Err()
-		}
-
-		err := res.Decode(&channel)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &channel, nil
-}
-
-func (r *lazyMongoRepo) SetAdminUser(ctx context.Context, guildId string, adminId string) error {
-	return r.dbFunc(ctx, func(ctx context.Context, db *mongo.Database) error {
-		coll := db.Collection(AdminUsersCollection.String())
-
-		adminUser := AdminUser{
-			GuildId: guildId,
-			UserlId: adminId,
-		}
-
-		filter := bson.D{{"guild_id", guildId}}
-		update := toInterfaceSlice(adminUser)
-		upsertOpts := options.Update().SetUpsert(true)
-
-		_, err := coll.UpdateMany(ctx, filter, update, upsertOpts)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-}
-
-func (r *lazyMongoRepo) CreateInhibition(ctx context.Context, guildId string, alertName string) error {
-	return r.dbFunc(ctx, func(ctx context.Context, db *mongo.Database) error {
-		coll := db.Collection(InhibitionsCollection.String())
-
-		inhibition := Inhibition{
-			GuildId:   guildId,
-			AlertName: alertName,
-		}
-
-		_, err := coll.InsertOne(ctx, toInterfaceSlice(inhibition))
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-}
-
-func (r *lazyMongoRepo) GetInhibitions(ctx context.Context, guildId string) ([]Inhibition, error) {
-
-	var inhibitions []Inhibition
-
-	err := r.dbFunc(ctx, func(ctx context.Context, db *mongo.Database) error {
-		coll := db.Collection(InhibitionsCollection.String())
-
-		filter := bson.D{{"guild_id", guildId}}
 		cur, err := coll.Find(ctx, filter)
 		if err != nil {
 			return err
 		}
 
-		err = cur.All(ctx, &inhibitions)
+		err = cur.All(ctx, &cfgs)
+
+		return err
+	})
+
+	return cfgs, err
+}
+
+func (r *lazyMongoRepo) GetGuildConfig(ctx context.Context, guildId string) (cfg *GuildConfig, err error) {
+	err = r.dbFunc(ctx, func(ctx context.Context, db *mongo.Database) error {
+		coll := db.Collection(GuildConfigCollection.String())
+
+		filter := bson.D{{"guild_id", guildId}}
+
+		res := coll.FindOne(ctx, filter)
+		if res.Err() != nil {
+			return res.Err()
+		}
+
+		err = res.Decode(&cfg)
 		if err != nil {
 			return err
 		}
@@ -207,18 +134,31 @@ func (r *lazyMongoRepo) GetInhibitions(ctx context.Context, guildId string) ([]I
 		return nil
 	})
 
-	if err != nil {
-		return nil, err
-	}
-
-	return inhibitions, nil
+	return cfg, err
 }
 
-func (r *lazyMongoRepo) DeleteInhibition(ctx context.Context, guildId string, alertName string) error {
+func (r *lazyMongoRepo) SetGuildConfig(ctx context.Context, config *GuildConfig) error {
 	return r.dbFunc(ctx, func(ctx context.Context, db *mongo.Database) error {
-		coll := db.Collection(InhibitionsCollection.String())
+		coll := db.Collection(GuildConfigCollection.String())
 
-		filter := bson.D{{"guild_id", guildId}, {"alert_name", alertName}}
+		filter := bson.D{{"guild_id", config.GuildId}}
+		update := toInterfaceSlice(config)
+		upsertOpts := options.Update().SetUpsert(true)
+
+		_, err := coll.UpdateMany(ctx, filter, update, upsertOpts)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func (r *lazyMongoRepo) DeleteGuildConfig(ctx context.Context, guildId string) error {
+	return r.dbFunc(ctx, func(ctx context.Context, db *mongo.Database) error {
+		coll := db.Collection(GuildConfigCollection.String())
+
+		filter := bson.D{{"guild_id", guildId}}
 
 		_, err := coll.DeleteOne(ctx, filter)
 		if err != nil {
@@ -236,9 +176,7 @@ func (r *lazyMongoRepo) ClearGuildInfo(ctx context.Context, guildId string) erro
 
 		collections := []CollectionName{
 			CommandRegistrationsCollection,
-			AlertChannelsCollection,
-			AdminUsersCollection,
-			InhibitionsCollection,
+			GuildConfigCollection,
 		}
 
 		for _, collection := range collections {

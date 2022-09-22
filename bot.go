@@ -15,12 +15,16 @@ import (
 type InteractionName string
 
 const (
-	GetAlertsCommandName           InteractionName = "get-alerts"
-	SetAlertsChannelCommandName    InteractionName = "set-alerts-channel"
-	SetAdminCommandName            InteractionName = "set-admin"
+	GetAlertsCommandName InteractionName = "get-alerts"
+
 	ShowInhibitedAlertsCommandName InteractionName = "show-inhibited-alerts"
 	InhibitAlertCommandName        InteractionName = "inhibit-alert"
 	UninhibitAlertCommandName      InteractionName = "uninhibit-alert"
+
+	SetAdminCommandName           InteractionName = "set-admin"
+	CreateScrapeConfigCommandName InteractionName = "create-scrape-config"
+	UpdateScrapeConfigCommandName InteractionName = "update-scrape-config"
+	RemoveScrapeConfigCommandName InteractionName = "remove-scrape-config"
 )
 
 func (c InteractionName) String() string {
@@ -30,9 +34,14 @@ func (c InteractionName) String() string {
 type InteractionOption string
 
 const (
-	ChannelOption   InteractionOption = "channel"
-	UserOption      InteractionOption = "user"
-	AlertNameOption InteractionOption = "alertname"
+	ChannelOption          InteractionOption = "channel"
+	UserOption             InteractionOption = "user"
+	AlertNameOption        InteractionOption = "alertname"
+	ScrapeConfigNameOption InteractionOption = "scrape-config-name"
+	EndpointOption         InteractionOption = "endpoint"
+	UsernameOption         InteractionOption = "username"
+	PasswordOption         InteractionOption = "password"
+	IntervalOption         InteractionOption = "interval"
 )
 
 func (c InteractionOption) String() string {
@@ -55,51 +64,99 @@ func (id MessageInteractionId) Name() (InteractionName, bool) {
 	return InteractionName(parts[0]), true
 }
 
-func (id MessageInteractionId) Value() (string, bool) {
+func (id MessageInteractionId) Values() ([]string, bool) {
 	parts := strings.Split(id.String(), MessageInteractionIdSeparator)
-	if len(parts) != 2 {
-		return "", false
+	if len(parts) < 2 {
+		return nil, false
 	}
 
-	return parts[1], true
+	return parts[1:], true
 }
 
 func (id MessageInteractionId) String() string {
 	return string(id)
 }
 
-func NewMessageInteractionId(name InteractionName, value string) MessageInteractionId {
-	return MessageInteractionId(fmt.Sprintf("%s%s%s", name, MessageInteractionIdSeparator, value))
+func NewMessageInteractionId(name InteractionName, values ...string) MessageInteractionId {
+	var str strings.Builder
+	str.WriteString(name.String())
+
+	for _, v := range values {
+		str.WriteString(MessageInteractionIdSeparator)
+		str.WriteString(v)
+	}
+
+	return MessageInteractionId(str.String())
 }
 
 type MessageInteractionHandlers map[InteractionName]InteractionHandler
+
+func getConfigCommand(create bool) *discordgo.ApplicationCommand {
+
+	var name = UpdateScrapeConfigCommandName.String()
+	if create {
+		name = CreateScrapeConfigCommandName.String()
+	}
+
+	var description = "Updates an existing scrape config"
+	if create {
+		description = "Creates a new scrape config"
+	}
+
+	return &discordgo.ApplicationCommand{
+		Name:        name,
+		Description: description,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:        ScrapeConfigNameOption.String(),
+				Description: "The name of the scrape config",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Required:    true,
+			},
+			{
+				Name:        EndpointOption.String(),
+				Description: "The endpoint to scrape",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Required:    create,
+			},
+			{
+				Name:        IntervalOption.String(),
+				Description: "The interval (in minutes) at which to scrape the endpoint",
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Required:    create,
+			},
+			{
+				Name:        ChannelOption.String(),
+				Description: "The channel to send the alerts to",
+				Type:        discordgo.ApplicationCommandOptionChannel,
+				Required:    create,
+			},
+			{
+				Name:        UsernameOption.String(),
+				Description: "The username required to access the endpoint",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Required:    false,
+			},
+			{
+				Name:        PasswordOption.String(),
+				Description: "The password required to access the endpoint",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Required:    false,
+			},
+		},
+	}
+}
 
 func getCommands() []*discordgo.ApplicationCommand {
 	return []*discordgo.ApplicationCommand{
 		{
 			Name:        GetAlertsCommandName.String(),
 			Description: "List all currently firing alerts",
-		},
-		{
-			Name:        SetAlertsChannelCommandName.String(),
-			Description: "Sets the channel where alerts will be sent periodically",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
-					Type:        discordgo.ApplicationCommandOptionChannel,
-					Name:        ChannelOption.String(),
-					Description: "Channel",
-					Required:    true,
-				},
-			},
-		},
-		{
-			Name:        SetAdminCommandName.String(),
-			Description: "Sets the administrator user",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionUser,
-					Name:        UserOption.String(),
-					Description: "User",
+					Name:        ScrapeConfigNameOption.String(),
+					Description: "The name of the scrape config",
+					Type:        discordgo.ApplicationCommandOptionString,
 					Required:    true,
 				},
 			},
@@ -107,15 +164,29 @@ func getCommands() []*discordgo.ApplicationCommand {
 		{
 			Name:        ShowInhibitedAlertsCommandName.String(),
 			Description: "List all inhibited alerts",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        ScrapeConfigNameOption.String(),
+					Description: "The name of the scrape config",
+					Type:        discordgo.ApplicationCommandOptionString,
+					Required:    true,
+				},
+			},
 		},
 		{
 			Name:        InhibitAlertCommandName.String(),
 			Description: "Inhibit an alert with the given name",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
+					Name:        ScrapeConfigNameOption.String(),
+					Description: "The name of the scrape config",
 					Type:        discordgo.ApplicationCommandOptionString,
+					Required:    true,
+				},
+				{
 					Name:        AlertNameOption.String(),
 					Description: "Alertname",
+					Type:        discordgo.ApplicationCommandOptionString,
 					Required:    true,
 				},
 			},
@@ -125,9 +196,41 @@ func getCommands() []*discordgo.ApplicationCommand {
 			Description: "Un-inhibit an alert with the given name",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
+					Name:        ScrapeConfigNameOption.String(),
+					Description: "The name of the scrape config",
 					Type:        discordgo.ApplicationCommandOptionString,
+					Required:    true,
+				},
+				{
 					Name:        AlertNameOption.String(),
 					Description: "Alertname",
+					Type:        discordgo.ApplicationCommandOptionString,
+					Required:    true,
+				},
+			},
+		},
+		{
+			Name:        SetAdminCommandName.String(),
+			Description: "Sets the administrator user",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        UserOption.String(),
+					Description: "User",
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Required:    true,
+				},
+			},
+		},
+		getConfigCommand(false),
+		getConfigCommand(true),
+		{
+			Name:        RemoveScrapeConfigCommandName.String(),
+			Description: "Removes a scrape config",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        ScrapeConfigNameOption.String(),
+					Description: "The name of the scrape config",
+					Type:        discordgo.ApplicationCommandOptionString,
 					Required:    true,
 				},
 			},
@@ -135,14 +238,18 @@ func getCommands() []*discordgo.ApplicationCommand {
 	}
 }
 
-func getInteractionHandlers(prometheusClient *prometheus.Client, repo db.Repo) InteractionHandlers {
+func getInteractionHandlers(repo db.Repo, scrapeManager *ScrapeManager) InteractionHandlers {
 	return map[InteractionName]InteractionHandler{
-		GetAlertsCommandName:           getAlertsHandler(prometheusClient, repo),
-		SetAlertsChannelCommandName:    setAlertsChannelHandler(repo),
-		SetAdminCommandName:            setAdminHandler(repo),
+		GetAlertsCommandName: getAlertsHandler(repo),
+
 		ShowInhibitedAlertsCommandName: showInhibitedAlertsHandler(repo),
 		InhibitAlertCommandName:        inhibitAlertHandler(repo),
 		UninhibitAlertCommandName:      uninhibitAlertHandler(repo),
+
+		SetAdminCommandName:           setAdminHandler(repo),
+		CreateScrapeConfigCommandName: createScrapeConfigCommandHandler(repo, scrapeManager),
+		UpdateScrapeConfigCommandName: updateScrapeConfigCommandHandler(repo, scrapeManager),
+		RemoveScrapeConfigCommandName: removeScrapeConfigCommandHandler(repo, scrapeManager),
 	}
 }
 
@@ -186,95 +293,89 @@ func respondWithError(s *discordgo.Session, i *discordgo.InteractionCreate, logg
 	respond(s, i, logger, fmt.Sprintf("❌ %s", message))
 }
 
-func getAlertsHandler(prometheusClient *prometheus.Client, repo db.Repo) InteractionHandler {
+func getAlertsHandler(repo db.Repo) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
-		alerts, err := prometheusClient.GetAlerts()
-		if err != nil {
-			logger.Errorf("Failed to get alerts: %s", err.Error())
-			respondWithError(s, i, logger, "Failed to get alerts.")
+
+		ctx := context.TODO()
+
+		opts := getOptionMap(i.ApplicationCommandData().Options)
+
+		configNameOpt, ok := opts[ScrapeConfigNameOption]
+		if !ok {
+			respondWithError(s, i, logger, "Name is required.")
 			return
 		}
 
-		filteredAlerts, err := filterAlerts(context.Background(), repo, i.GuildID, alerts)
+		configName := configNameOpt.StringValue()
+
+		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
+		if err != nil {
+			logger.Errorf("Failed to get guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to get inhibited alerts.")
+			return
+		}
+
+		scrapeConfig, ok := findMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+			return cfg.Name == configName
+		})
+		if !ok {
+			respondWithError(s, i, logger, fmt.Sprintf("Couldn't find scrape config with name \"%s\".", configName))
+			return
+		}
+
+		client := prometheus.NewPrometheusClientFromScrapeConfig(scrapeConfig)
+		alerts, err := client.GetAlerts()
+
+		filteredAlerts, err := filterAlerts(alerts, scrapeConfig.Inhibitions)
 		if err != nil {
 			logger.Errorf("Failed to filter alerts: %s", err.Error())
 			respondWithError(s, i, logger, "Failed to filter alerts.")
 			return
 		}
 
-		sendAlertsToChannel(s, i.ChannelID, filteredAlerts, logger)
-	}
-}
-
-func setAlertsChannelHandler(repo db.Repo) InteractionHandler {
-	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
-
-		opts := getOptionMap(i.ApplicationCommandData().Options)
-
-		if channelOption, ok := opts[ChannelOption]; ok {
-
-			channel := channelOption.ChannelValue(s)
-
-			if channel.Type != discordgo.ChannelTypeGuildText {
-				respondWithWarning(s, i, logger, "Alerts channel must be a text channel")
-				return
-			}
-
-			err := repo.SetAlertsChannel(context.Background(), i.GuildID, channel.ID)
-			if err != nil {
-				logger.Errorf("Failed to set alerts channel: %s", err.Error())
-				respondWithError(s, i, logger, "Failed to set alerts channel.")
-			}
-
-			respondWithSuccess(s, i, logger, "Alerts channel set.")
-		} else {
-			respondWithWarning(s, i, logger, "Channel option is required.")
-		}
-	}
-}
-
-func setAdminHandler(repo db.Repo) InteractionHandler {
-	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
-
-		opts := getOptionMap(i.ApplicationCommandData().Options)
-
-		if userOption, ok := opts[UserOption]; ok {
-
-			user := userOption.UserValue(s)
-
-			// Todo: Ensure user isn't a bot
-
-			err := repo.SetAdminUser(context.Background(), i.GuildID, user.ID)
-
-			if err != nil {
-				logger.Errorf("Failed to set admin user: %s", err.Error())
-				respondWithError(s, i, logger, "Failed to set admin user.")
-			}
-
-			respondWithSuccess(s, i, logger, "Admin user set.")
-		} else {
-			respondWithWarning(s, i, logger, "User option is required.")
-		}
+		sendAlertsToChannel(s, scrapeConfig, filteredAlerts, logger)
 	}
 }
 
 func showInhibitedAlertsHandler(repo db.Repo) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
-		inhibitions, err := repo.GetInhibitions(context.Background(), i.GuildID)
-		if err != nil {
-			logger.Errorf("Failed to get inhibitions: %s", err.Error())
-			respondWithError(s, i, logger, "Failed to get inhibitions.")
+
+		ctx := context.TODO()
+
+		opts := getOptionMap(i.ApplicationCommandData().Options)
+
+		configNameOpt, ok := opts[ScrapeConfigNameOption]
+		if !ok {
+			respondWithError(s, i, logger, "Name is required.")
+			return
 		}
 
-		if len(inhibitions) == 0 {
-			respond(s, i, logger, "No inhibitions found.")
+		configName := configNameOpt.StringValue()
+
+		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
+		if err != nil {
+			logger.Errorf("Failed to get guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to get inhibited alerts.")
+			return
+		}
+
+		scrapeConfig, ok := findMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+			return cfg.Name == configName
+		})
+		if !ok {
+			respondWithError(s, i, logger, fmt.Sprintf("Couldn't find scrape config with name \"%s\".", configName))
+			return
+		}
+
+		if len(scrapeConfig.Inhibitions) == 0 {
+			respond(s, i, logger, fmt.Sprintf("No inhibitions set for %s.", configName))
 			return
 		}
 
 		var content string
-		for i2, inhibition := range inhibitions {
+		for i2, inhibition := range scrapeConfig.Inhibitions {
 			content += inhibition.AlertName
-			if i2 != len(inhibitions)-1 {
+			if i2 != len(scrapeConfig.Inhibitions)-1 {
 				content += ", "
 			}
 		}
@@ -286,66 +387,391 @@ func showInhibitedAlertsHandler(repo db.Repo) InteractionHandler {
 func inhibitAlertHandler(repo db.Repo) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
+		ctx := context.TODO()
+
 		opts := getOptionMap(i.ApplicationCommandData().Options)
 
-		if alertNameOption, ok := opts[AlertNameOption]; ok {
-
-			alertName := alertNameOption.StringValue()
-
-			err := repo.CreateInhibition(context.Background(), i.GuildID, alertName)
-			if err != nil {
-				logger.Errorf("Failed to add inhibition: %s", err.Error())
-				respondWithError(s, i, logger, "Failed to add inhibition.")
-			}
-
-			respondWithSuccess(s, i, logger, "Inhibition added.")
-
-		} else {
-			respondWithWarning(s, i, logger, "Could not find alert name option.")
+		configNameOpt, ok := opts[ScrapeConfigNameOption]
+		if !ok {
+			respondWithError(s, i, logger, "Name is required.")
+			return
 		}
+
+		configName := configNameOpt.StringValue()
+
+		alertNameOpt, ok := opts[AlertNameOption]
+		if !ok {
+			respondWithError(s, i, logger, "Could not find alert name option.")
+			return
+		}
+
+		alertName := alertNameOpt.StringValue()
+
+		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
+		if err != nil {
+			logger.Errorf("Failed to get guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to get inhibited alerts.")
+			return
+		}
+
+		scrapeConfig, ok := findMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+			return cfg.Name == configName
+		})
+		if !ok {
+			respondWithError(s, i, logger, fmt.Sprintf("Couldn't find scrape config with name \"%s\".", configName))
+			return
+		}
+
+		scrapeConfig.Inhibitions = append(scrapeConfig.Inhibitions, db.Inhibition{AlertName: alertName})
+
+		err = repo.SetGuildConfig(ctx, guildConfig)
+		if err != nil {
+			logger.Errorf("Failed to set guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to add inhibition.")
+			return
+		}
+
+		respondWithSuccess(s, i, logger, "Inhibition added.")
 	}
 }
 
 func uninhibitAlertHandler(repo db.Repo) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
+		ctx := context.TODO()
+
 		opts := getOptionMap(i.ApplicationCommandData().Options)
 
-		if alertNameOption, ok := opts[AlertNameOption]; ok {
-
-			alertName := alertNameOption.StringValue()
-
-			err := repo.DeleteInhibition(context.Background(), i.GuildID, alertName)
-			if err != nil {
-				logger.Errorf("Failed to remove inhibition: %s", err.Error())
-				respondWithError(s, i, logger, "Failed to remove inhibition.")
-			}
-
-			respondWithSuccess(s, i, logger, "Inhibition removed.")
-
-		} else {
-			respondWithWarning(s, i, logger, "Could not find alert name option.")
+		configNameOpt, ok := opts[ScrapeConfigNameOption]
+		if !ok {
+			respondWithError(s, i, logger, "Name is required.")
+			return
 		}
+
+		configName := configNameOpt.StringValue()
+
+		alertNameOpt, ok := opts[AlertNameOption]
+		if !ok {
+			respondWithError(s, i, logger, "Could not find alert name option.")
+			return
+		}
+
+		alertName := alertNameOpt.StringValue()
+
+		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
+		if err != nil {
+			logger.Errorf("Failed to get guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to get inhibited alerts.")
+			return
+		}
+
+		scrapeConfig, ok := findMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+			return cfg.Name == configName
+		})
+		if !ok {
+			respondWithError(s, i, logger, fmt.Sprintf("Couldn't find scrape config with name \"%s\".", configName))
+			return
+		}
+
+		scrapeConfig.Inhibitions = removeMatching(scrapeConfig.Inhibitions, func(inhib db.Inhibition) bool {
+			return inhib.AlertName == alertName
+		})
+
+		err = repo.SetGuildConfig(ctx, guildConfig)
+		if err != nil {
+			logger.Errorf("Failed to set guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to remove inhibition.")
+			return
+		}
+
+		respondWithSuccess(s, i, logger, "Inhibition removed.")
 	}
 }
 
 func inhibitAlertFromMessageHandler(repo db.Repo) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
+		ctx := context.TODO()
+
 		customId := MessageInteractionId(i.Interaction.MessageComponentData().CustomID)
-		alertName, ok := customId.Value()
-		if !ok {
+		values, ok := customId.Values()
+		if !ok || len(values) != 2 {
 			respondWithWarning(s, i, logger, fmt.Sprintf("Received unknown custom_id: %s", customId))
 			return
 		}
 
-		err := repo.CreateInhibition(context.Background(), i.GuildID, alertName)
+		configName := values[0]
+		alertName := values[1]
+
+		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
 		if err != nil {
-			logger.Errorf("Failed to add inhibition: %s", err.Error())
+			logger.Errorf("Failed to get guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to get inhibited alerts.")
+			return
+		}
+
+		scrapeConfig, ok := findMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+			return cfg.Name == configName
+		})
+		if !ok {
+			respondWithError(s, i, logger, fmt.Sprintf("Couldn't find scrape config with name \"%s\".", configName))
+			return
+		}
+
+		scrapeConfig.Inhibitions = append(scrapeConfig.Inhibitions, db.Inhibition{AlertName: alertName})
+
+		err = repo.SetGuildConfig(ctx, guildConfig)
+		if err != nil {
+			logger.Errorf("Failed to set guild config: %s", err.Error())
 			respondWithError(s, i, logger, "Failed to add inhibition.")
+			return
 		}
 
 		respondWithSuccess(s, i, logger, "Inhibition added.")
+	}
+}
+
+func setAdminHandler(repo db.Repo) InteractionHandler {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
+
+		ctx := context.TODO()
+
+		opts := getOptionMap(i.ApplicationCommandData().Options)
+
+		adminOpt, ok := opts[UserOption]
+		if !ok {
+			respondWithWarning(s, i, logger, "User option is required.")
+			return
+		}
+
+		user := adminOpt.UserValue(s)
+
+		// Todo: Ensure user isn't a bot
+
+		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
+		if err != nil {
+			logger.Errorf("Failed to get guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to set admin user.")
+			return
+		}
+
+		guildConfig.AdminId = user.ID
+
+		err = repo.SetGuildConfig(ctx, guildConfig)
+		if err != nil {
+			logger.Errorf("Failed to set guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to set admin user.")
+		}
+
+		respondWithSuccess(s, i, logger, "Admin user set.")
+	}
+}
+
+func createScrapeConfigCommandHandler(repo db.Repo, scrapeManager *ScrapeManager) InteractionHandler {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
+
+		ctx := context.TODO()
+
+		opts := getOptionMap(i.ApplicationCommandData().Options)
+
+		configNameOpt, ok := opts[ScrapeConfigNameOption]
+		if !ok {
+			respondWithError(s, i, logger, "Name is required.")
+			return
+		}
+
+		endpointOpt, ok := opts[EndpointOption]
+		if !ok {
+			respondWithError(s, i, logger, "Endpoint is required.")
+			return
+		}
+
+		intervalMinsOpt, ok := opts[IntervalOption]
+		if !ok {
+			respondWithError(s, i, logger, "Start interval is required.")
+			return
+		}
+
+		channelOpt, ok := opts[ChannelOption]
+		if !ok {
+			respondWithError(s, i, logger, "Alerts channel is required.")
+			return
+		}
+
+		channel := channelOpt.ChannelValue(s)
+		if channel.Type != discordgo.ChannelTypeGuildText {
+			respondWithError(s, i, logger, "Alerts channel must be a text channel.")
+			return
+		}
+
+		scrapeConfig := &db.ScrapeConfig{
+			Name:                  configNameOpt.StringValue(),
+			Endpoint:              endpointOpt.StringValue(),
+			ScrapeIntervalMinutes: intervalMinsOpt.IntValue(),
+			AlertChannelId:        channel.ID,
+			Inhibitions:           make([]db.Inhibition, 0),
+		}
+
+		usernameOpt, _ := opts[UsernameOption]
+		passwordOpt, _ := opts[PasswordOption]
+		if usernameOpt != nil && passwordOpt != nil {
+			scrapeConfig.Username = usernameOpt.StringValue()
+			scrapeConfig.Password = passwordOpt.StringValue()
+		}
+
+		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
+		if err != nil {
+			logger.Errorf("Failed to get guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to create scrape config.")
+			return
+		}
+
+		for _, cfg := range guildConfig.ScrapeConfigs {
+			if cfg.Name == scrapeConfig.Name {
+				respondWithError(s, i, logger, fmt.Sprintf("There is already a scrape config with the name \"%s\".", scrapeConfig.Name))
+				return
+			}
+		}
+
+		guildConfig.ScrapeConfigs = append(guildConfig.ScrapeConfigs, *scrapeConfig)
+
+		err = repo.SetGuildConfig(context.Background(), guildConfig)
+		if err != nil {
+			logger.Errorf("Failed to update guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to create scrape config.")
+			return
+		}
+
+		scrapeManager.Start(guildConfig.GuildId, scrapeConfig)
+
+		respondWithSuccess(s, i, logger, "Start config created.")
+	}
+}
+
+func updateScrapeConfigCommandHandler(repo db.Repo, scrapeManager *ScrapeManager) InteractionHandler {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
+
+		ctx := context.TODO()
+
+		opts := getOptionMap(i.ApplicationCommandData().Options)
+
+		configNameOpt, ok := opts[ScrapeConfigNameOption]
+		if !ok {
+			respondWithError(s, i, logger, "Name is required.")
+			return
+		}
+
+		configName := configNameOpt.StringValue()
+
+		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
+		if err != nil {
+			logger.Errorf("Failed to get guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to guild scrape config.")
+		}
+
+		var scrapeConfig *db.ScrapeConfig
+		for _, cfg := range guildConfig.ScrapeConfigs {
+			if cfg.Name == configName {
+				scrapeConfig = &cfg
+				break
+			}
+		}
+
+		if scrapeConfig == nil {
+			respondWithError(s, i, logger, fmt.Sprintf("Couldn't find scrape config with name \"%s\".", configName))
+			return
+		}
+
+		endpointOpt, ok := opts[EndpointOption]
+		if ok {
+			scrapeConfig.Endpoint = endpointOpt.StringValue()
+		}
+
+		usernameOpt, ok := opts[UsernameOption]
+		if ok {
+			scrapeConfig.Username = usernameOpt.StringValue()
+		}
+
+		passwordOpt, ok := opts[PasswordOption]
+		if ok {
+			scrapeConfig.Password = passwordOpt.StringValue()
+		}
+
+		intervalMinsOpt, ok := opts[IntervalOption]
+		if ok {
+			scrapeConfig.ScrapeIntervalMinutes = intervalMinsOpt.IntValue()
+		}
+
+		channelOpt, ok := opts[ChannelOption]
+		if ok {
+			channel := channelOpt.ChannelValue(s)
+			if channel.Type != discordgo.ChannelTypeGuildText {
+				respondWithError(s, i, logger, "Alerts channel must be a text channel.")
+				return
+			}
+
+			scrapeConfig.AlertChannelId = channel.ID
+		}
+
+		err = repo.SetGuildConfig(context.Background(), guildConfig)
+		if err != nil {
+			logger.Errorf("Failed to set guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to update scrape config.")
+			return
+		}
+
+		// Restart the scrape after updating the config
+		scrapeManager.Restart(guildConfig.GuildId, scrapeConfig)
+
+		respondWithSuccess(s, i, logger, "Start config updated.")
+	}
+}
+
+func removeScrapeConfigCommandHandler(repo db.Repo, scrapeManager *ScrapeManager) InteractionHandler {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
+
+		ctx := context.TODO()
+
+		opts := getOptionMap(i.ApplicationCommandData().Options)
+
+		configNameOpt, ok := opts[ScrapeConfigNameOption]
+		if !ok {
+			respondWithError(s, i, logger, "Name is required.")
+			return
+		}
+
+		configName := configNameOpt.StringValue()
+
+		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
+		if err != nil {
+			logger.Errorf("Failed to get guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to guild scrape config.")
+		}
+
+		removed := false
+		for i, cfg := range guildConfig.ScrapeConfigs {
+			if cfg.Name == configName {
+				guildConfig.ScrapeConfigs = append(guildConfig.ScrapeConfigs[:i], guildConfig.ScrapeConfigs[i+1:]...)
+				removed = true
+				break
+			}
+		}
+
+		if !removed {
+			respondWithError(s, i, logger, fmt.Sprintf("Couldn't find scrape config with name \"%s\".", configName))
+			return
+		}
+
+		err = repo.SetGuildConfig(context.Background(), guildConfig)
+		if err != nil {
+			logger.Errorf("Failed to set guild config: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to remove scrape config.")
+			return
+		}
+
+		scrapeManager.Stop(guildConfig.GuildId, configName)
+
+		respondWithSuccess(s, i, logger, "Start config removed.")
 	}
 }
 
@@ -396,13 +822,28 @@ func onInteractionCreateHandler(interactionHandlers InteractionHandlers, message
 func onGuildCreated(commands []*discordgo.ApplicationCommand, repo db.Repo, logger logrus.FieldLogger) func(s *discordgo.Session, i *discordgo.GuildCreate) {
 	return func(s *discordgo.Session, i *discordgo.GuildCreate) {
 
+		ctx := context.TODO()
+
 		ctxLogger := logger.WithField("guild_id", i.Guild.ID)
 		ctxLogger.Debugln("Guild created")
+
+		ctxLogger.Debugln("Creating config...")
+
+		cfg := db.NewGuildConfig(i.Guild.ID)
+		err := repo.SetGuildConfig(ctx, cfg)
+		if err != nil {
+			ctxLogger.Errorf("Failed to set guild config: %v", err.Error())
+		}
+
+		ctxLogger.Debugln("Config created")
+
+		ctxLogger.Debugln("Creating commands...")
 
 		for _, v := range commands {
 			cmd, err := s.ApplicationCommandCreate(s.State.User.ID, i.Guild.ID, v)
 			if err != nil {
 				ctxLogger.Errorf("Cannot create '%v' command: %v", v.Name, err)
+				continue
 			}
 
 			ctxLogger.Debugf("Created '%v' command", v.Name)
@@ -411,6 +852,8 @@ func onGuildCreated(commands []*discordgo.ApplicationCommand, repo db.Repo, logg
 				ctxLogger.Errorf("Failed to register command: %s", err.Error())
 			}
 		}
+
+		ctxLogger.Debugln("Commands created")
 	}
 }
 
@@ -422,7 +865,7 @@ func onGuildDeleted(repo db.Repo, logger logrus.FieldLogger) func(s *discordgo.S
 
 		ctx := context.Background()
 
-		commands, err := repo.GetRegisteredCommand(ctx, i.Guild.ID)
+		commands, err := repo.GetRegisteredCommands(ctx, i.Guild.ID)
 		if err != nil {
 			ctxLogger.Errorf("Failed to get commands: %s", err.Error())
 			return
@@ -450,10 +893,13 @@ func getInviteLink(cfg config.Bot) string {
 	return link
 }
 
-func RunBot(ctx context.Context, cfg config.Bot, logger logrus.FieldLogger, repo db.Repo, prometheusClient *prometheus.Client, alertsChan chan prometheus.Alerts) error {
+func RunBot(ctx context.Context, cfg config.Bot, logger logrus.FieldLogger, repo db.Repo) error {
+
+	scrapeResultsChan := make(chan ScrapeResult)
+	scrapeManager := NewScrapeManager(scrapeResultsChan, logger)
 
 	commands := getCommands()
-	interactionHandlers := getInteractionHandlers(prometheusClient, repo)
+	interactionHandlers := getInteractionHandlers(repo, scrapeManager)
 	componentInteractionHandlers := getMessageInteractionHandlers(repo)
 
 	// Create a new Discord session using the provided bot token.
@@ -477,7 +923,18 @@ func RunBot(ctx context.Context, cfg config.Bot, logger logrus.FieldLogger, repo
 
 	defer s.Close()
 
-	go watchAlerts(ctx, s, cfg.GuildId(), repo, logger, alertsChan)
+	guildConfigs, err := repo.GetGuildConfigs(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, guildConfig := range guildConfigs {
+		for _, scrapeConfig := range guildConfig.ScrapeConfigs {
+			scrapeManager.Start(guildConfig.GuildId, &scrapeConfig)
+		}
+	}
+
+	go watchAlerts(ctx, s, repo, logger, scrapeResultsChan)
 
 	<-ctx.Done()
 
@@ -508,23 +965,33 @@ func getFieldsFromLabels(alert prometheus.Alert) []*discordgo.MessageEmbedField 
 	return fields
 }
 
-func watchAlerts(ctx context.Context, s *discordgo.Session, guildId string, repo db.Repo, logger logrus.FieldLogger, alertsChan chan prometheus.Alerts) {
+func watchAlerts(ctx context.Context, s *discordgo.Session, repo db.Repo, logger logrus.FieldLogger, resultsChan chan ScrapeResult) {
 	for {
 		select {
-		case alerts := <-alertsChan:
-			alertsChannel, err := repo.GetAlertsChannel(ctx, guildId)
+		case results := <-resultsChan:
+
+			guildConfig, err := repo.GetGuildConfig(ctx, results.GuildId)
 			if err != nil {
-				logger.Debugf("Failed to get alerts channel: %s", err.Error())
-				continue
+				logger.Errorf("Failed to get guild config: %s", err.Error())
+				return
 			}
 
-			filteredAlerts, err := filterAlerts(ctx, repo, guildId, alerts)
+			scrapeConfig, ok := findMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+				return cfg.Name == results.ScrapeConfigName
+			})
+
+			if !ok {
+				logger.Warn("Guild config for %s doesn't contain a scrape config with the name %s", results.GuildId, results.ScrapeConfigName)
+				return
+			}
+
+			filteredAlerts, err := filterAlerts(results.Alerts, scrapeConfig.Inhibitions)
 			if err != nil {
 				logger.Errorf("Failed to filter alerts: %s", err.Error())
 				continue
 			}
 
-			sendAlertsToChannel(s, alertsChannel.ChannelId, filteredAlerts, logger)
+			sendAlertsToChannel(s, scrapeConfig, filteredAlerts, logger)
 
 		case <-ctx.Done():
 			break
@@ -532,12 +999,7 @@ func watchAlerts(ctx context.Context, s *discordgo.Session, guildId string, repo
 	}
 }
 
-func filterAlerts(ctx context.Context, repo db.Repo, guildId string, alerts prometheus.Alerts) (prometheus.Alerts, error) {
-
-	inhibitions, err := repo.GetInhibitions(ctx, guildId)
-	if err != nil {
-		return nil, err
-	}
+func filterAlerts(alerts prometheus.Alerts, inhibitions []db.Inhibition) (prometheus.Alerts, error) {
 
 	var newAlerts prometheus.Alerts
 	for _, alert := range alerts {
@@ -562,7 +1024,7 @@ func hasMatching[T any](ts []T, fn func(v T) bool) bool {
 	return false
 }
 
-func sendAlertsToChannel(s *discordgo.Session, channelId string, alerts prometheus.Alerts, logger logrus.FieldLogger) {
+func sendAlertsToChannel(s *discordgo.Session, scrapeConfig *db.ScrapeConfig, alerts prometheus.Alerts, logger logrus.FieldLogger) {
 	for _, alert := range alerts {
 
 		alertName := alert.Labels["alertname"]
@@ -590,7 +1052,7 @@ func sendAlertsToChannel(s *discordgo.Session, channelId string, alerts promethe
 		inhibitButtonComponent := discordgo.Button{
 			Label:    "Inhibit",
 			Style:    discordgo.DangerButton,
-			CustomID: NewMessageInteractionId(InhibitAlertCommandName, alertName).String(),
+			CustomID: NewMessageInteractionId(InhibitAlertCommandName, scrapeConfig.Name, alertName).String(),
 		}
 
 		message := &discordgo.MessageSend{
@@ -604,9 +1066,30 @@ func sendAlertsToChannel(s *discordgo.Session, channelId string, alerts promethe
 			},
 		}
 
-		_, err = s.ChannelMessageSendComplex(channelId, message)
+		_, err = s.ChannelMessageSendComplex(scrapeConfig.AlertChannelId, message)
 		if err != nil {
-			logger.Errorf("Failed to send message to channel %s: %s\n", channelId, err.Error())
+			logger.Errorf("Failed to send message to channel %s: %s\n", scrapeConfig.AlertChannelId, err.Error())
 		}
 	}
+}
+
+func removeMatching[T any](s []T, match func(t T) bool) []T {
+	for i, t := range s {
+		if match(t) {
+			s[i] = s[len(s)-1]
+			return s[:len(s)-1]
+		}
+	}
+
+	return s
+}
+
+func findMatching[T any](s []T, match func(t T) bool) (*T, bool) {
+	for _, t := range s {
+		if match(t) {
+			return &t, true
+		}
+	}
+
+	return nil, false
 }

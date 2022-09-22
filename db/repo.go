@@ -9,33 +9,44 @@ type CollectionName string
 
 const (
 	CommandRegistrationsCollection CollectionName = "command_registrations"
-	AlertChannelsCollection        CollectionName = "alert_channels"
-	AdminUsersCollection           CollectionName = "admin_users"
-	InhibitionsCollection          CollectionName = "inhibitions"
+	GuildConfigCollection          CollectionName = "guild_config"
 )
 
 func (c CollectionName) String() string {
 	return string(c)
 }
 
+type GuildConfig struct {
+	GuildId       string         `bson:"guild_id"`
+	AdminId       string         `bson:"alert_id"`
+	ScrapeConfigs []ScrapeConfig `bson:"scrape_configs"`
+}
+
+func NewGuildConfig(guildId string) *GuildConfig {
+	return &GuildConfig{
+		GuildId:       guildId,
+		AdminId:       "",
+		ScrapeConfigs: make([]ScrapeConfig, 0),
+	}
+}
+
+type ScrapeConfig struct {
+	Name                  string       `bson:"scrape_name"`
+	Endpoint              string       `bson:"endpoint"`
+	Username              string       `bson:"username"`
+	Password              string       `bson:"password"`
+	ScrapeIntervalMinutes int64        `bson:"scrape_interval_minutes"`
+	AlertChannelId        string       `bson:"alert_channel_id"`
+	Inhibitions           []Inhibition `bson:"inhibitions"`
+}
+
 type CommandRegistration struct {
-	CommandId   string `bson:"command_id"`
 	GuildId     string `bson:"guild_id"`
+	CommandId   string `bson:"command_id"`
 	CommandName string `bson:"command_name"`
 }
 
-type AlertsChannel struct {
-	GuildId   string `bson:"guild_id"`
-	ChannelId string `bson:"channel_id"`
-}
-
-type AdminUser struct {
-	GuildId string `bson:"guild_id"`
-	UserlId string `bson:"user_id"`
-}
-
 type Inhibition struct {
-	GuildId   string `bson:"guild_id"`
 	AlertName string `bson:"alert_name"`
 }
 
@@ -44,12 +55,10 @@ type Func func(ctx context.Context, cb Callback) error
 
 type Repo interface {
 	RegisterCommand(ctx context.Context, guildId string, commandId string, commandName string) error
-	GetRegisteredCommand(ctx context.Context, guildId string) ([]CommandRegistration, error)
-	SetAlertsChannel(ctx context.Context, guildId string, channelId string) error
-	GetAlertsChannel(ctx context.Context, guildId string) (*AlertsChannel, error)
-	SetAdminUser(ctx context.Context, guildId string, channelId string) error
-	CreateInhibition(ctx context.Context, guildId string, alertName string) error
-	GetInhibitions(ctx context.Context, guildId string) ([]Inhibition, error)
-	DeleteInhibition(ctx context.Context, guildId string, alertName string) error
+	GetRegisteredCommands(ctx context.Context, guildId string) ([]CommandRegistration, error)
+	GetGuildConfigs(ctx context.Context) ([]GuildConfig, error)
+	GetGuildConfig(ctx context.Context, guildId string) (*GuildConfig, error)
+	SetGuildConfig(ctx context.Context, config *GuildConfig) error
+	DeleteGuildConfig(ctx context.Context, guildId string) error
 	ClearGuildInfo(ctx context.Context, guildId string) error
 }

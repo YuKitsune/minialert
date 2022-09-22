@@ -8,9 +8,7 @@ import (
 func SetupInMemoryDatabase() Repo {
 	repo := &inMemoryRepo{
 		registeredCommands: make([]CommandRegistration, 0),
-		alertChannels:      make([]AlertsChannel, 0),
-		adminUsers:         make([]AdminUser, 0),
-		inhibitions:        make([]Inhibition, 0),
+		guildConfigs:       make([]GuildConfig, 0),
 	}
 
 	return repo
@@ -18,9 +16,7 @@ func SetupInMemoryDatabase() Repo {
 
 type inMemoryRepo struct {
 	registeredCommands []CommandRegistration
-	alertChannels      []AlertsChannel
-	adminUsers         []AdminUser
-	inhibitions        []Inhibition
+	guildConfigs       []GuildConfig
 }
 
 func (r *inMemoryRepo) RegisterCommand(_ context.Context, guildId string, commandId string, commandName string) error {
@@ -34,7 +30,7 @@ func (r *inMemoryRepo) RegisterCommand(_ context.Context, guildId string, comman
 	return nil
 }
 
-func (r *inMemoryRepo) GetRegisteredCommand(_ context.Context, guildId string) ([]CommandRegistration, error) {
+func (r *inMemoryRepo) GetRegisteredCommands(_ context.Context, guildId string) ([]CommandRegistration, error) {
 	var commands []CommandRegistration
 	for _, command := range r.registeredCommands {
 		if command.GuildId == guildId {
@@ -45,48 +41,41 @@ func (r *inMemoryRepo) GetRegisteredCommand(_ context.Context, guildId string) (
 	return commands, nil
 }
 
-func (r *inMemoryRepo) SetAlertsChannel(_ context.Context, guildId string, channelId string) error {
-	r.alertChannels = append(r.alertChannels, AlertsChannel{GuildId: guildId, ChannelId: channelId})
-	return nil
+func (r *inMemoryRepo) GetGuildConfigs(_ context.Context) ([]GuildConfig, error) {
+	return r.guildConfigs, nil
 }
 
-func (r *inMemoryRepo) GetAlertsChannel(_ context.Context, guildId string) (*AlertsChannel, error) {
-	for _, channel := range r.alertChannels {
-		if channel.GuildId == guildId {
-			return &channel, nil
+func (r *inMemoryRepo) GetGuildConfig(_ context.Context, guildId string) (*GuildConfig, error) {
+	for _, config := range r.guildConfigs {
+		if config.GuildId == guildId {
+			return &config, nil
 		}
 	}
 
-	return nil, fmt.Errorf("no alerts channel has been set")
+	return nil, fmt.Errorf("no config found for guild %s", guildId)
 }
 
-func (r *inMemoryRepo) SetAdminUser(_ context.Context, guildId string, adminId string) error {
-	r.adminUsers = append(r.adminUsers, AdminUser{GuildId: guildId, UserlId: adminId})
-	return nil
-}
-
-func (r *inMemoryRepo) CreateInhibition(_ context.Context, guildId string, alertName string) error {
-	r.inhibitions = append(r.inhibitions, Inhibition{GuildId: guildId, AlertName: alertName})
-	return nil
-}
-
-func (r *inMemoryRepo) GetInhibitions(_ context.Context, guildId string) ([]Inhibition, error) {
-	var inhibitions []Inhibition
-	for _, inhibition := range r.inhibitions {
-		if inhibition.GuildId == guildId {
-			inhibitions = append(inhibitions, inhibition)
+func (r *inMemoryRepo) SetGuildConfig(_ context.Context, config *GuildConfig) error {
+	for i, cfg := range r.guildConfigs {
+		if cfg.GuildId == config.GuildId {
+			r.guildConfigs[i] = *config
+			return nil
 		}
 	}
 
-	return inhibitions, nil
+	r.guildConfigs = append(r.guildConfigs, *config)
+	return nil
 }
 
-func (r *inMemoryRepo) DeleteInhibition(_ context.Context, guildId string, alertName string) error {
-	r.inhibitions = removeMatching(r.inhibitions, func(inhibition Inhibition) bool {
-		return inhibition.GuildId == guildId && inhibition.AlertName == alertName
-	})
+func (r *inMemoryRepo) DeleteGuildConfig(_ context.Context, guildId string) error {
+	for i, cfg := range r.guildConfigs {
+		if cfg.GuildId == guildId {
+			r.guildConfigs = append(r.guildConfigs[:i], r.guildConfigs[i+1:]...)
+			return nil
+		}
+	}
 
-	return nil
+	return fmt.Errorf("no config found for guild %s", guildId)
 }
 
 func (r *inMemoryRepo) ClearGuildInfo(_ context.Context, guildId string) error {
@@ -94,16 +83,8 @@ func (r *inMemoryRepo) ClearGuildInfo(_ context.Context, guildId string) error {
 		return command.GuildId == guildId
 	})
 
-	r.alertChannels = removeMatching(r.alertChannels, func(alertChannel AlertsChannel) bool {
-		return alertChannel.GuildId == guildId
-	})
-
-	r.adminUsers = removeMatching(r.adminUsers, func(adminUser AdminUser) bool {
-		return adminUser.GuildId == guildId
-	})
-
-	r.inhibitions = removeMatching(r.inhibitions, func(inhibition Inhibition) bool {
-		return inhibition.GuildId == guildId
+	r.guildConfigs = removeMatching(r.guildConfigs, func(config GuildConfig) bool {
+		return config.GuildId == guildId
 	})
 
 	return nil

@@ -15,9 +15,6 @@ func Setup(logger logrus.FieldLogger) (Config, error) {
 	v := viper.New()
 
 	// Set defaults
-	v.SetDefault("scrapeIntervalMinutes", 30)
-	v.SetDefault("prometheus.username", "")
-	v.SetDefault("prometheus.password", "")
 	v.SetDefault("prometheus.timeoutSeconds", 5)
 	v.SetDefault("database.scopes", []string{"bot", "application.commands"})
 	v.SetDefault("log.level", "info")
@@ -53,8 +50,6 @@ func Setup(logger logrus.FieldLogger) (Config, error) {
 }
 
 type Config interface {
-	ScrapeInterval() time.Duration
-	Prometheus() Prometheus
 	Database() Database
 	Bot() Bot
 	Log() Log
@@ -62,30 +57,24 @@ type Config interface {
 }
 
 type viperConfig struct {
-	v    *viper.Viper
-	prom *viperPrometheusConfig
-	db   *viperDatabaseConfig
-	bot  *viperBotConfig
-	log  *viperLogConfig
+	v   *viper.Viper
+	db  *viperDatabaseConfig
+	bot *viperBotConfig
+	log *viperLogConfig
 }
 
 func NewConfigProvider(v *viper.Viper) Config {
 	return &viperConfig{
-		v:    v,
-		prom: &viperPrometheusConfig{v},
-		db:   &viperDatabaseConfig{v},
-		bot:  &viperBotConfig{v},
-		log:  &viperLogConfig{v},
+		v:   v,
+		db:  &viperDatabaseConfig{v},
+		bot: &viperBotConfig{v},
+		log: &viperLogConfig{v},
 	}
 }
 
 func (c *viperConfig) ScrapeInterval() time.Duration {
 	intervalMinutes := c.v.GetInt("scrapeIntervalMinutes")
 	return time.Duration(intervalMinutes) * time.Minute
-}
-
-func (c *viperConfig) Prometheus() Prometheus {
-	return c.prom
 }
 
 func (c *viperConfig) Database() Database {

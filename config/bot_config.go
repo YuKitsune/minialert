@@ -7,7 +7,6 @@ type Bot interface {
 	ClientId() string
 	Permissions() string
 	Scopes() []string
-	GuildId() string
 }
 
 type viperBotConfig struct {
@@ -48,15 +47,4 @@ func (c *viperBotConfig) Scopes() []string {
 
 	scopes := c.v.GetStringSlice("bot.scopes")
 	return scopes
-}
-
-// Todo: Remove
-
-func (c *viperBotConfig) GuildId() string {
-	if !c.v.IsSet("bot.guildId") {
-		panic("no discord guild id was provided")
-	}
-
-	guildId := c.v.GetString("bot.guildId")
-	return guildId
 }

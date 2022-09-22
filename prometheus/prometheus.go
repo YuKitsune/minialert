@@ -3,7 +3,7 @@ package prometheus
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"github.com/yukitsune/minialert/db"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -38,15 +38,27 @@ type Client struct {
 }
 
 func NewPrometheusClient(client http.Client, endpoint string) *Client {
-	return NewClientWithBasicAuth(client, endpoint, nil)
+	return NewPrometheusClientWithBasicAuth(client, endpoint, nil)
 }
 
-func NewClientWithBasicAuth(client http.Client, endpoint string, creds *BasicAuthDetails) *Client {
+func NewPrometheusClientWithBasicAuth(client http.Client, endpoint string, creds *BasicAuthDetails) *Client {
 	return &Client{
 		client:           client,
 		endpoint:         endpoint,
 		basicAuthDetails: creds,
 	}
+}
+
+func NewPrometheusClientFromScrapeConfig(config *db.ScrapeConfig) *Client {
+	client := http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	if len(config.Username) > 0 && len(config.Password) > 0 {
+		return NewPrometheusClientWithBasicAuth(client, config.Endpoint, &BasicAuthDetails{Username: config.Username, Password: config.Password})
+	}
+
+	return NewPrometheusClient(client, config.Endpoint)
 }
 
 func (c *Client) GetAlerts() (Alerts, error) {
@@ -65,8 +77,6 @@ func (c *Client) GetAlerts() (Alerts, error) {
 	}
 
 	defer res.Body.Close()
-
-	fmt.Printf("Status: %s\n", res.Status)
 
 	resBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {

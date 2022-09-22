@@ -5,16 +5,13 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/yukitsune/minialert/config"
 	"github.com/yukitsune/minialert/db"
-	"github.com/yukitsune/minialert/prometheus"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 )
 
 // Todo:
-// 	1. The goroutines and channels are kinda wacky... Let's fix them...
+//  1. Config not updating
 // 	2. Implement cobra
 // 	3. Dockerize and mongo-ize(?)
 
@@ -31,35 +28,15 @@ func main() {
 
 	cfg.Debug(logger.WriterLevel(logrus.DebugLevel))
 
-	client := http.Client{
-		Timeout: cfg.Prometheus().Timeout(),
-	}
-
-	var creds *prometheus.BasicAuthDetails
-	if hasCreds, username, password := cfg.Prometheus().BasicAuth(); hasCreds {
-		creds = &prometheus.BasicAuthDetails{
-			Username: username,
-			Password: password,
-		}
-	}
-
-	promClient := prometheus.NewClientWithBasicAuth(client, cfg.Prometheus().Endpoint(), creds)
-
-	alertsChan := make(chan prometheus.Alerts)
-	errorsChan := make(chan error)
-
-	// Todo: Only start scraping when a bot joins a guild
-	// Todo: Start one goroutine per guild
-	// Todo: Stop the goroutine when the bot leaves a guild, or the application exits
-	go scrape(cfg.ScrapeInterval(), promClient, alertsChan, errorsChan)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	dbFunc := db.SetupInMemoryDatabase()
+	repo := db.SetupInMemoryDatabase()
+
+	errorsChan := make(chan error)
 
 	go func() {
-		err := RunBot(ctx, cfg.Bot(), logger, dbFunc, promClient, alertsChan)
+		err := RunBot(ctx, cfg.Bot(), logger, repo)
 
 		if err != nil {
 			errorsChan <- err
@@ -67,19 +44,6 @@ func main() {
 	}()
 
 	waitForSignal(logger, shutdownChan, errorsChan)
-}
-
-func scrape(period time.Duration, prometheusClient *prometheus.Client, alertsChan chan prometheus.Alerts, errChan chan error) {
-	for range time.Tick(period) {
-
-		alerts, err := prometheusClient.GetAlerts()
-		if err != nil {
-			errChan <- err
-			continue
-		}
-
-		alertsChan <- alerts
-	}
 }
 
 func getShutdownSignalChan() chan os.Signal {
