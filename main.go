@@ -40,6 +40,8 @@ var runCmd = &cobra.Command{
 
 var configFile string
 
+// Todo: Tidy up cobra x viper stuffs
+
 func init() {
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "use a specific config file, uses /etc/minialert or the current directory by default")
 	rootCmd.PersistentFlags().Bool("debug", false, "use verbose logging")
