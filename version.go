@@ -1,4 +1,4 @@
-package version
+package minialert
 
 var (
 	// Version defines current version of Minialert

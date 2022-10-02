@@ -6,12 +6,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/yukitsune/minialert"
 	"github.com/yukitsune/minialert/bot"
 	"github.com/yukitsune/minialert/config"
 	"github.com/yukitsune/minialert/db"
 	"github.com/yukitsune/minialert/grace"
 	"github.com/yukitsune/minialert/scraper"
-	"github.com/yukitsune/minialert/version"
 	"log"
 )
 
@@ -28,7 +28,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Prints the current version",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(version.Version)
+		fmt.Println(minialert.Version)
 	},
 }
 

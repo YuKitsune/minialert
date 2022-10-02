@@ -32,7 +32,6 @@
 .history/
 logs
 
-# Maestro specific
 # Build output
 bin
 
