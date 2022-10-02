@@ -2,71 +2,93 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"github.com/yukitsune/minialert/bot"
 	"github.com/yukitsune/minialert/config"
 	"github.com/yukitsune/minialert/db"
-	"os"
-	"os/signal"
-	"syscall"
+	"github.com/yukitsune/minialert/grace"
+	"github.com/yukitsune/minialert/scraper"
+	"github.com/yukitsune/minialert/version"
+	"log"
 )
 
 // Todo:
-// 	1. Implement cobra
-// 	2. Dockerize and mongo-ize(?)
+// 	1. Dockerize and mongo-ize(?)
+
+var rootCmd = &cobra.Command{
+	Use:   "minialert <command> [flags]",
+	Short: "Minialert is a lightweight alert management Discord bot for prometheus",
+	Long:  `a lightweight alert management Discord bot for prometheus built with love by YuKitsune in Go.`,
+}
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Prints the current version",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println(version.Version)
+	},
+}
+
+var runCmd = &cobra.Command{
+	Use:   "run",
+	Short: "Runs the discord bot",
+	RunE:  run,
+}
+
+var configFile string
+
+func init() {
+	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "use a specific config file, uses /etc/minialert or the current directory by default")
+	rootCmd.PersistentFlags().Bool("debug", false, "use verbose logging")
+	_ = viper.BindPFlag("log.debug", rootCmd.PersistentFlags().Lookup("debug"))
+
+	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(versionCmd)
+}
 
 func main() {
+	err := rootCmd.Execute()
+	if err != nil {
+		grace.FExitFromError(log.Writer(), err)
+	}
+}
 
-	shutdownChan := getShutdownSignalChan()
+func run(_ *cobra.Command, _ []string) error {
 
-	// Build the logger now so we can log stuff
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Build the logger now, so we can log stuff
 	// We'll configure it once we've loaded the config
 	logger := logrus.New()
 
-	cfg, _ := config.Setup(logger)
+	cfg, _ := config.Setup(configFile, viper.GetViper(), logger)
 	configureLogging(logger, cfg.Log())
 
-	cfg.Debug(logger.WriterLevel(logrus.DebugLevel))
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	logger.Debugf("Config %s", cfg.Debug())
 
 	repo := db.SetupInMemoryDatabase(logger)
+	scrapeManager := scraper.NewScrapeManager(logger)
+
+	b := bot.New(cfg.Bot(), repo, scrapeManager, logger)
 
 	errorsChan := make(chan error)
-
 	go func() {
-		err := RunBot(ctx, cfg.Bot(), logger, repo)
+		err := b.Start(ctx)
 
 		if err != nil {
 			errorsChan <- err
 		}
 	}()
 
-	waitForSignal(logger, shutdownChan, errorsChan)
-}
+	grace.WaitForShutdownSignalOrError(logger, errorsChan, func() error {
+		cancel()
+		return b.Close()
+	})
 
-func getShutdownSignalChan() chan os.Signal {
-	shutdownSignalChan := make(chan os.Signal, 1)
-	signal.Notify(shutdownSignalChan,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-		syscall.SIGINT,
-		syscall.SIGKILL,
-		os.Kill,
-	)
-
-	return shutdownSignalChan
-}
-
-func waitForSignal(logger *logrus.Logger, shutdownSignalChan chan os.Signal, errorChan chan error) {
-	select {
-	case sig := <-shutdownSignalChan:
-		logger.Infof("Signal caught: %s\n", sig.String())
-		break
-	case err := <-errorChan:
-		logger.Errorf("Error: %s\n", err.Error())
-		break
-	}
+	return nil
 }
 
 func configureLogging(logger *logrus.Logger, cfg config.Log) {

@@ -1,4 +1,4 @@
-package main
+package scraper
 
 import (
 	"fmt"
@@ -22,10 +22,10 @@ type ScrapeManager struct {
 	quitters    map[string]func()
 }
 
-func NewScrapeManager(resultsChan chan ScrapeResult, logger logrus.FieldLogger) *ScrapeManager {
+func NewScrapeManager(logger logrus.FieldLogger) *ScrapeManager {
 	return &ScrapeManager{
 		logger:      logger,
-		resultsChan: resultsChan,
+		resultsChan: make(chan ScrapeResult),
 		quitters:    make(map[string]func()),
 	}
 }
@@ -38,12 +38,20 @@ func (m *ScrapeManager) Start(guildId string, config *db.ScrapeConfig) {
 
 	scrapeLogger := m.logger.WithField("scrape_config_name", config.Name)
 
-	go m.scrape(guildId, config, scrapeLogger, quit, m.resultsChan)
+	go m.scrape(guildId, config, scrapeLogger, quit)
 }
 
-func (m *ScrapeManager) Restart(guildId string, config *db.ScrapeConfig) {
-	m.Stop(guildId, config.Name)
+func (m *ScrapeManager) Chan() chan ScrapeResult {
+	return m.resultsChan
+}
+
+func (m *ScrapeManager) Restart(guildId string, config *db.ScrapeConfig) error {
+	if err := m.Stop(guildId, config.Name); err != nil {
+		return err
+	}
+
 	m.Start(guildId, config)
+	return nil
 }
 
 func (m *ScrapeManager) Stop(guildId string, name string) error {
@@ -57,11 +65,11 @@ func (m *ScrapeManager) Stop(guildId string, name string) error {
 	return nil
 }
 
-func (m *ScrapeManager) scrape(guildId string, config *db.ScrapeConfig, logger logrus.FieldLogger, quitChan chan bool, resultsChan chan ScrapeResult) {
+func (m *ScrapeManager) scrape(guildId string, config *db.ScrapeConfig, logger logrus.FieldLogger, quitChan chan bool) {
 	dur := time.Duration(config.ScrapeIntervalMinutes) * time.Minute
 	client := prometheus.NewPrometheusClientFromScrapeConfig(config)
 
-	logger.Info("Scraper started")
+	logger.Debug("Scraper started")
 
 	for {
 		select {
@@ -80,10 +88,10 @@ func (m *ScrapeManager) scrape(guildId string, config *db.ScrapeConfig, logger l
 				Alerts:           alerts,
 			}
 
-			resultsChan <- res
+			m.Chan() <- res
 
 		case <-quitChan:
-			logger.Infof("Scraper stopped")
+			logger.Debug("Scraper stopped")
 			break
 		}
 	}

@@ -8,6 +8,7 @@ import (
 
 type Log interface {
 	Level() logrus.Level
+	Debug() bool
 }
 
 type viperLogConfig struct {
@@ -16,6 +17,10 @@ type viperLogConfig struct {
 
 func (c *viperLogConfig) Level() logrus.Level {
 
+	if c.Debug() {
+		return logrus.DebugLevel
+	}
+
 	level := c.v.GetString("log.level")
 	lvl, err := logrus.ParseLevel(level)
 	if err != nil {
@@ -23,4 +28,8 @@ func (c *viperLogConfig) Level() logrus.Level {
 	}
 
 	return lvl
+}
+
+func (c *viperLogConfig) Debug() bool {
+	return c.v.GetBool("log.debug")
 }

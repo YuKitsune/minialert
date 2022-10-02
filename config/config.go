@@ -5,18 +5,14 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"io"
 	"strings"
-	"time"
 )
 
-func Setup(logger logrus.FieldLogger) (Config, error) {
-
-	v := viper.New()
+func Setup(configFile string, v *viper.Viper, logger logrus.FieldLogger) (Config, error) {
 
 	// Set defaults
 	v.SetDefault("prometheus.timeoutSeconds", 5)
-	v.SetDefault("database.scopes", []string{"bot", "application.commands"})
+	v.SetDefault("bot.scopes", []string{"bot", "application.commands"})
 	v.SetDefault("log.level", "info")
 
 	// Environment variables
@@ -25,17 +21,22 @@ func Setup(logger logrus.FieldLogger) (Config, error) {
 	v.AutomaticEnv()
 
 	// Config file
-	v.SetConfigName("minialert")
-	v.SetConfigType("yaml")
-	v.AddConfigPath("/etc/minialert")
-	v.AddConfigPath("../configs")
-	v.AddConfigPath("./configs")
-	v.AddConfigPath(".")
+	if len(configFile) > 0 {
+		logrus.Infof("🔧 Loading config from %s", configFile)
+		v.SetConfigFile(configFile)
+	} else {
+		v.SetConfigName("minialert")
+		v.SetConfigType("yaml")
+		v.AddConfigPath("/etc/minialert")
+		v.AddConfigPath("../configs")
+		v.AddConfigPath("./configs")
+		v.AddConfigPath(".")
+	}
 
 	// Watch for changes
 	v.WatchConfig()
 	v.OnConfigChange(func(e fsnotify.Event) {
-		logger.Infof("Config file changed: ", e.Name)
+		logger.Infof("♻️ Config file changed: ", e.Name)
 	})
 
 	// Load config from file
@@ -53,7 +54,7 @@ type Config interface {
 	Database() Database
 	Bot() Bot
 	Log() Log
-	Debug(w io.Writer)
+	Debug() string
 }
 
 type viperConfig struct {
@@ -72,11 +73,6 @@ func NewConfigProvider(v *viper.Viper) Config {
 	}
 }
 
-func (c *viperConfig) ScrapeInterval() time.Duration {
-	intervalMinutes := c.v.GetInt("scrapeIntervalMinutes")
-	return time.Duration(intervalMinutes) * time.Minute
-}
-
 func (c *viperConfig) Database() Database {
 	return c.db
 }
@@ -89,6 +85,6 @@ func (c *viperConfig) Log() Log {
 	return c.log
 }
 
-func (c *viperConfig) Debug(w io.Writer) {
-	fmt.Fprintf(w, "%#v", c.v.AllSettings())
+func (c *viperConfig) Debug() string {
+	return fmt.Sprintf("%#v", c.v.AllSettings())
 }
