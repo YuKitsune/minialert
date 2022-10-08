@@ -1,7 +1,7 @@
 # Build
 FROM golang:1.19.1-alpine3.16 as build
 
-ADD .. /go/src/github.com/YuKitsune/minialert
+ADD . /go/src/github.com/YuKitsune/minialert
 WORKDIR /go/src/github.com/YuKitsune/minialert
 RUN go build -o bin/minialert -ldflags "-X 'github.com/yukitsune/minialert.Version=$VERSION'" cmd/minialert/main.go
 
