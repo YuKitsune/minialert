@@ -54,7 +54,7 @@ By default, minialert will check for a `minialert.yaml` file in the current work
 
 A config file can be specified manually using the `--config` flag. Example:
 ```shell
-minialert --config ./somewhere/else/custom-config.yaml
+minialert run --config ./somewhere/else/custom-config.yaml
 ```
 
 Here is an example config file, along with corresponding environment variables.
