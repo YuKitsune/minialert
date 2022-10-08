@@ -14,11 +14,11 @@ services:
       MONGODB_DATABASE: ${MONGO_MINIALERT_DATABASE}
 
       # ReplicaSet stuff
-      # Use this when accessing from docker compose or k8s
-      # MONGODB_ADVERTISED_HOSTNAME: database
+      # Use this when minialert is running via docker compose
+      MONGODB_ADVERTISED_HOSTNAME: database
 
-      # Use this when accessing from outside of docker compose or k8s
-      MONGODB_ADVERTISED_HOSTNAME: localhost
+      # Use this when minialert is running outside of docker compose
+      # MONGODB_ADVERTISED_HOSTNAME: localhost
 
       MONGODB_REPLICA_SET_NAME: rs0
       MONGODB_REPLICA_SET_MODE: primary
@@ -28,8 +28,8 @@ services:
       - "27017:27017"
 
     volumes:
-      - mongo-data:/data/db # (Optional) Use this if you want the data to persist between runs
-      # - /data/db
+      # - mongo-data:/data/db # (Optional) Use this if you want the data to persist between runs
+      - /data/db
 
   minialert:
     build:
@@ -49,5 +49,5 @@ services:
     depends_on:
       - database
 
-volumes:
-  mongo-data:
+#volumes:
+#  mongo-data:
