@@ -32,7 +32,7 @@ docker run \
 
 ## Compiling from Source
 
-Minialert can be combined from source by running the following command:
+Minialert can be compiled from source by running the following command:
 
 ```shell
 # Using make
@@ -40,7 +40,7 @@ make build
 
 # Without make
 mkdir -p bin
-go build -ldflags="$(LD_FLAGS)" -o ./bin/  ./cmd/...
+go build -o ./bin/  ./cmd/...
 ```
 
 # Configuration
