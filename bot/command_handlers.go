@@ -367,6 +367,7 @@ func createScrapeConfigCommandHandler(repo db.Repo, scrapeManager *scraper.Scrap
 			Inhibitions:           make([]db.Inhibition, 0),
 		}
 
+		// Todo: Don't source credentials from a discord interaction... Maybe provide a link to an external form? (New project idea?)
 		usernameOpt, _ := opts[UsernameOption]
 		passwordOpt, _ := opts[PasswordOption]
 		if usernameOpt != nil && passwordOpt != nil {
