@@ -11,7 +11,6 @@ const (
 	InhibitAlertCommandName        InteractionName = "inhibit-alert"
 	UninhibitAlertCommandName      InteractionName = "uninhibit-alert"
 
-	SetAdminCommandName           InteractionName = "set-admin"
 	CreateScrapeConfigCommandName InteractionName = "create-scrape-config"
 	UpdateScrapeConfigCommandName InteractionName = "update-scrape-config"
 	RemoveScrapeConfigCommandName InteractionName = "remove-scrape-config"
@@ -152,18 +151,6 @@ func getCommands() []*discordgo.ApplicationCommand {
 					Name:        AlertNameOption.String(),
 					Description: "Alertname",
 					Type:        discordgo.ApplicationCommandOptionString,
-					Required:    true,
-				},
-			},
-		},
-		{
-			Name:        SetAdminCommandName.String(),
-			Description: "Sets the administrator user",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Name:        UserOption.String(),
-					Description: "User",
-					Type:        discordgo.ApplicationCommandOptionUser,
 					Required:    true,
 				},
 			},

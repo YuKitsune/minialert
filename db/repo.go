@@ -18,14 +18,12 @@ func (c CollectionName) String() string {
 
 type GuildConfig struct {
 	GuildId       string         `bson:"guild_id"`
-	AdminId       string         `bson:"alert_id"`
 	ScrapeConfigs []ScrapeConfig `bson:"scrape_configs"`
 }
 
 func NewGuildConfig(guildId string) *GuildConfig {
 	return &GuildConfig{
 		GuildId:       guildId,
-		AdminId:       "",
 		ScrapeConfigs: make([]ScrapeConfig, 0),
 	}
 }

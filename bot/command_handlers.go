@@ -62,7 +62,6 @@ func getInteractionHandlers(repo db.Repo, scrapeManager *scraper.ScrapeManager) 
 		InhibitAlertCommandName:        inhibitAlertHandler(repo),
 		UninhibitAlertCommandName:      uninhibitAlertHandler(repo),
 
-		SetAdminCommandName:           setAdminHandler(repo),
 		CreateScrapeConfigCommandName: createScrapeConfigCommandHandler(repo, scrapeManager),
 		UpdateScrapeConfigCommandName: updateScrapeConfigCommandHandler(repo, scrapeManager),
 		RemoveScrapeConfigCommandName: removeScrapeConfigCommandHandler(repo, scrapeManager),
@@ -319,42 +318,6 @@ func inhibitAlertFromMessageHandler(repo db.Repo) InteractionHandler {
 		}
 
 		respondWithSuccess(s, i, logger, "Inhibition added.")
-	}
-}
-
-func setAdminHandler(repo db.Repo) InteractionHandler {
-	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
-
-		ctx := context.TODO()
-
-		opts := getOptionMap(i.ApplicationCommandData().Options)
-
-		adminOpt, ok := opts[UserOption]
-		if !ok {
-			respondWithWarning(s, i, logger, "User option is required.")
-			return
-		}
-
-		user := adminOpt.UserValue(s)
-
-		// Todo: Ensure user isn't a bot
-
-		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
-		if err != nil {
-			logger.Errorf("Failed to get guild config: %s", err.Error())
-			respondWithError(s, i, logger, "Failed to set admin user.")
-			return
-		}
-
-		guildConfig.AdminId = user.ID
-
-		err = repo.SetGuildConfig(ctx, guildConfig)
-		if err != nil {
-			logger.Errorf("Failed to set guild config: %s", err.Error())
-			respondWithError(s, i, logger, "Failed to set admin user.")
-		}
-
-		respondWithSuccess(s, i, logger, "Admin user set.")
 	}
 }
 
