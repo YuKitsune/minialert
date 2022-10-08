@@ -8,7 +8,11 @@ import (
 	"time"
 )
 
-// Todo: Composite scrape ID made up of guild ID and scrape ID
+type quitterKey string
+
+func newQuitterKey(guildId string, configName string) quitterKey {
+	return quitterKey(fmt.Sprintf("%s:%s", guildId, configName))
+}
 
 type ScrapeResult struct {
 	GuildId          string
@@ -19,20 +23,21 @@ type ScrapeResult struct {
 type ScrapeManager struct {
 	logger      logrus.FieldLogger
 	resultsChan chan ScrapeResult
-	quitters    map[string]func()
+	quitters    map[quitterKey]func()
 }
 
 func NewScrapeManager(logger logrus.FieldLogger) *ScrapeManager {
 	return &ScrapeManager{
 		logger:      logger,
 		resultsChan: make(chan ScrapeResult),
-		quitters:    make(map[string]func()),
+		quitters:    make(map[quitterKey]func()),
 	}
 }
 
 func (m *ScrapeManager) Start(guildId string, config *db.ScrapeConfig) {
 	quit := make(chan bool)
-	m.quitters[config.Name] = func() {
+	key := newQuitterKey(guildId, config.Name)
+	m.quitters[key] = func() {
 		quit <- true
 	}
 
@@ -55,13 +60,14 @@ func (m *ScrapeManager) Restart(guildId string, config *db.ScrapeConfig) error {
 }
 
 func (m *ScrapeManager) Stop(guildId string, name string) error {
-	quit, ok := m.quitters[name]
+	key := newQuitterKey(guildId, name)
+	quit, ok := m.quitters[key]
 	if !ok {
-		return fmt.Errorf("no scrapers running for %s", name)
+		return fmt.Errorf("no scrapers running for %s in guild %s", name, guildId)
 	}
 
 	quit()
-	delete(m.quitters, name)
+	delete(m.quitters, key)
 	return nil
 }
 
@@ -69,16 +75,20 @@ func (m *ScrapeManager) scrape(guildId string, config *db.ScrapeConfig, logger l
 	dur := time.Duration(config.ScrapeIntervalMinutes) * time.Minute
 	client := prometheus.NewPrometheusClientFromScrapeConfig(config)
 
-	logger.Debug("Scraper started")
+	ctxLogger := logger.
+		WithField("guild_id", guildId).
+		WithField("scrape_config_name", config.Name)
+
+	ctxLogger.Debug("Scraper started")
 
 	for {
 		select {
 		case <-time.Tick(dur):
 
-			logger.Debug("Beginning scrape")
+			ctxLogger.Debug("Beginning scrape")
 			alerts, err := client.GetAlerts()
 			if err != nil {
-				logger.WithField("scrape_config_name", config.Name).Errorf("Error occurred while scraping: %s", err.Error())
+				ctxLogger.Errorf("Error occurred while scraping: %s", err.Error())
 				continue
 			}
 
@@ -91,8 +101,8 @@ func (m *ScrapeManager) scrape(guildId string, config *db.ScrapeConfig, logger l
 			m.Chan() <- res
 
 		case <-quitChan:
-			logger.Debug("Scraper stopped")
-			break
+			ctxLogger.Debug("Scraper stopped")
+			return
 		}
 	}
 }
