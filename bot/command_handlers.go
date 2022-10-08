@@ -8,6 +8,7 @@ import (
 	"github.com/yukitsune/minialert/db"
 	"github.com/yukitsune/minialert/prometheus"
 	"github.com/yukitsune/minialert/scraper"
+	"github.com/yukitsune/minialert/util"
 	"strings"
 )
 
@@ -105,7 +106,7 @@ func getAlertsHandler(repo db.Repo) InteractionHandler {
 			return
 		}
 
-		scrapeConfig, ok := findMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+		scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
 			return cfg.Name == configName
 		})
 		if !ok {
@@ -149,7 +150,7 @@ func showInhibitedAlertsHandler(repo db.Repo) InteractionHandler {
 			return
 		}
 
-		scrapeConfig, ok := findMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+		scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
 			return cfg.Name == configName
 		})
 		if !ok {
@@ -204,7 +205,7 @@ func inhibitAlertHandler(repo db.Repo) InteractionHandler {
 			return
 		}
 
-		scrapeConfig, ok := findMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+		scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
 			return cfg.Name == configName
 		})
 		if !ok {
@@ -255,7 +256,7 @@ func uninhibitAlertHandler(repo db.Repo) InteractionHandler {
 			return
 		}
 
-		scrapeConfig, ok := findMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+		scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
 			return cfg.Name == configName
 		})
 		if !ok {
@@ -263,7 +264,7 @@ func uninhibitAlertHandler(repo db.Repo) InteractionHandler {
 			return
 		}
 
-		scrapeConfig.Inhibitions = removeMatching(scrapeConfig.Inhibitions, func(inhib db.Inhibition) bool {
+		scrapeConfig.Inhibitions = util.RemoveMatching(scrapeConfig.Inhibitions, func(inhib db.Inhibition) bool {
 			return inhib.AlertName == alertName
 		})
 
@@ -300,7 +301,7 @@ func inhibitAlertFromMessageHandler(repo db.Repo) InteractionHandler {
 			return
 		}
 
-		scrapeConfig, ok := findMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+		scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
 			return cfg.Name == configName
 		})
 		if !ok {

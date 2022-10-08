@@ -7,6 +7,7 @@ import (
 	"github.com/yukitsune/minialert/db"
 	"github.com/yukitsune/minialert/prometheus"
 	"github.com/yukitsune/minialert/scraper"
+	"github.com/yukitsune/minialert/util"
 	"strconv"
 )
 
@@ -36,7 +37,7 @@ func watchAlerts(done chan bool, s *discordgo.Session, repo db.Repo, scrapeManag
 				return
 			}
 
-			scrapeConfig, ok := findMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+			scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
 				return cfg.Name == results.ScrapeConfigName
 			})
 
@@ -113,7 +114,7 @@ func filterAlerts(alerts prometheus.Alerts, inhibitions []db.Inhibition) (promet
 
 	var newAlerts prometheus.Alerts
 	for _, alert := range alerts {
-		if !hasMatching(inhibitions, func(inhibition db.Inhibition) bool {
+		if !util.HasMatching(inhibitions, func(inhibition db.Inhibition) bool {
 			alertName := alert.Labels["alertname"]
 			return inhibition.AlertName == alertName
 		}) {

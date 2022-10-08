@@ -8,10 +8,10 @@ import (
 	"time"
 )
 
-type quitterKey string
+type key string
 
-func newQuitterKey(guildId string, configName string) quitterKey {
-	return quitterKey(fmt.Sprintf("%s:%s", guildId, configName))
+func newQuitterKey(guildId string, configName string) key {
+	return key(fmt.Sprintf("%s:%s", guildId, configName))
 }
 
 type ScrapeResult struct {
@@ -23,14 +23,14 @@ type ScrapeResult struct {
 type ScrapeManager struct {
 	logger      logrus.FieldLogger
 	resultsChan chan ScrapeResult
-	quitters    map[quitterKey]func()
+	quitters    map[key]func()
 }
 
 func NewScrapeManager(logger logrus.FieldLogger) *ScrapeManager {
 	return &ScrapeManager{
 		logger:      logger,
 		resultsChan: make(chan ScrapeResult),
-		quitters:    make(map[quitterKey]func()),
+		quitters:    make(map[key]func()),
 	}
 }
 

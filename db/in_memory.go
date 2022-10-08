@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"github.com/yukitsune/minialert/util"
 )
 
 func SetupInMemoryDatabase(logger logrus.FieldLogger) Repo {
@@ -87,34 +88,13 @@ func (r *inMemoryRepo) DeleteGuildConfig(_ context.Context, guildId string) erro
 }
 
 func (r *inMemoryRepo) ClearGuildInfo(_ context.Context, guildId string) error {
-	r.registeredCommands = removeMatching(r.registeredCommands, func(command CommandRegistration) bool {
+	r.registeredCommands = util.RemoveMatching(r.registeredCommands, func(command CommandRegistration) bool {
 		return command.GuildId == guildId
 	})
 
-	r.guildConfigs = removeMatching(r.guildConfigs, func(config GuildConfig) bool {
+	r.guildConfigs = util.RemoveMatching(r.guildConfigs, func(config GuildConfig) bool {
 		return config.GuildId == guildId
 	})
 
 	return nil
-}
-
-func removeMatching[T any](s []T, fn func(v T) bool) []T {
-
-	var indexes []int
-	for i, item := range s {
-		if fn(item) {
-			indexes = append(indexes, i)
-		}
-	}
-
-	for _, index := range indexes {
-		s = remove(s, index)
-	}
-
-	return s
-}
-
-func remove[T any](s []T, i int) []T {
-	s[i] = s[len(s)-1]
-	return s[:len(s)-1]
 }

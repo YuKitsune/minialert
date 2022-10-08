@@ -91,34 +91,3 @@ func getInviteLink(cfg config.Bot) string {
 	link := fmt.Sprintf("https://discord.com/api/oauth2/authorize?client_id=%s&permissions=%s&scope=%s", cfg.ClientId(), cfg.Permissions(), scopesStr)
 	return link
 }
-
-func hasMatching[T any](ts []T, fn func(v T) bool) bool {
-	for _, t := range ts {
-		if fn(t) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func removeMatching[T any](s []T, match func(t T) bool) []T {
-	for i, t := range s {
-		if match(t) {
-			s[i] = s[len(s)-1]
-			return s[:len(s)-1]
-		}
-	}
-
-	return s
-}
-
-func findMatching[T any](s []T, match func(t T) bool) (*T, bool) {
-	for _, t := range s {
-		if match(t) {
-			return &t, true
-		}
-	}
-
-	return nil, false
-}
