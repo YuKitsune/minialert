@@ -15,10 +15,10 @@ services:
 
       # ReplicaSet stuff
       # Use this when minialert is running via docker compose
-      MONGODB_ADVERTISED_HOSTNAME: database
+      # MONGODB_ADVERTISED_HOSTNAME: database
 
       # Use this when minialert is running outside of docker compose
-      # MONGODB_ADVERTISED_HOSTNAME: localhost
+      MONGODB_ADVERTISED_HOSTNAME: localhost
 
       MONGODB_REPLICA_SET_NAME: rs0
       MONGODB_REPLICA_SET_MODE: primary
