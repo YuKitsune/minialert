@@ -15,9 +15,6 @@ import (
 	"log"
 )
 
-// Todo:
-// 	1. Dockerize and mongo-ize(?)
-
 var rootCmd = &cobra.Command{
 	Use:   "minialert <command> [flags]",
 	Short: "Minialert is a lightweight alert management Discord bot for prometheus",
@@ -71,7 +68,8 @@ func run(_ *cobra.Command, _ []string) error {
 
 	logger.Debugf("Config %s", cfg.Debug())
 
-	repo := db.SetupInMemoryDatabase(logger)
+	repo := configureRepo(cfg.Database(), logger)
+
 	scrapeManager := scraper.NewScrapeManager(logger)
 
 	b := bot.New(cfg.Bot(), repo, scrapeManager, logger)
@@ -94,7 +92,15 @@ func run(_ *cobra.Command, _ []string) error {
 }
 
 func configureLogging(logger *logrus.Logger, cfg config.Log) {
-
 	lvl := cfg.Level()
 	logger.SetLevel(lvl)
+}
+
+func configureRepo(cfg config.Database, logger logrus.FieldLogger) db.Repo {
+	if cfg.UseInMemoryDatabase() {
+		logger.Warnln("Using in-memory database. Data will not be persisted after the program has exited.")
+		return db.SetupInMemoryDatabase(logger)
+	}
+
+	return db.SetupMongoDatabase(cfg)
 }

@@ -37,6 +37,11 @@ DOCKER_COMPOSE_CMD := docker compose --project-name $(PROJECT_NAME) --file ./dep
 help: ## Shows this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
+
+.PHONY: run
+run: ## Executes the program
+	go run ./cmd/minialert/main.go run
+
 .PHONY: build
 build: ## Builds all programs and places their binaries in the bin/ directory
 	mkdir -p bin
@@ -77,3 +82,7 @@ compose-fresh-detach: ## Rebuilds the containers and forces a recreation in deta
 .PHONY: compose-down
 compose-down: ## Tears down the docker instances created by compose-up
 	$(DOCKER_COMPOSE_CMD) down
+
+.PHONY: database
+database: ## Runs only the database
+	$(DOCKER_COMPOSE_CMD) up database

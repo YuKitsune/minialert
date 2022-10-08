@@ -1,0 +1,53 @@
+version: "3.9"
+services:
+  database:
+    image: 'bitnami/mongodb:6.0.2'
+    environment:
+
+      # Root user
+      MONGODB_ROOT_USER: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGODB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+
+      # Minialert user
+      MONGODB_USERNAME: ${MONGO_MINIALERT_USERNAME}
+      MONGODB_PASSWORD: ${MONGO_MINIALERT_PASSWORD}
+      MONGODB_DATABASE: ${MONGO_MINIALERT_DATABASE}
+
+      # ReplicaSet stuff
+      # Use this when accessing from docker compose or k8s
+      # MONGODB_ADVERTISED_HOSTNAME: database
+
+      # Use this when accessing from outside of docker compose or k8s
+      MONGODB_ADVERTISED_HOSTNAME: localhost
+
+      MONGODB_REPLICA_SET_NAME: rs0
+      MONGODB_REPLICA_SET_MODE: primary
+      MONGODB_REPLICA_SET_KEY: rs0key
+
+    ports:
+      - "27017:27017"
+
+    volumes:
+      - mongo-data:/data/db # (Optional) Use this if you want the data to persist between runs
+      # - /data/db
+
+  minialert:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+
+    environment:
+      MINIALERT_LOG_LEVEL: debug
+
+      # Database
+      MINIALERT_DATABASE_URI: ${MINIALERT_DATABASE_URI}
+      MINIALERT_DATABASE_NAME: ${MINIALERT_DATABASE_NAME}
+
+    volumes:
+      - ../configs/minialert.yaml:/minialert.yaml
+
+    depends_on:
+      - database
+
+volumes:
+  mongo-data:

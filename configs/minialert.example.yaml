@@ -4,7 +4,11 @@ database:
   uri:
 
   # The name of the database to use.
-  database: "minialert"
+  name: "minialert"
+
+  # Whether or not to use an in-memory database.
+  # Note: All data will be lost after the program has exited.
+  inMemory: false
 
 bot:
 

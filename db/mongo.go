@@ -11,9 +11,13 @@ import (
 )
 
 func SetupMongoDatabase(cfg config.Database) Repo {
-	opts := options.Client().ApplyURI(cfg.Uri())
-
 	dbFunc := func(ctx context.Context, cb Callback) error {
+		uri, err := cfg.Uri()
+		if err != nil {
+			return nil
+		}
+
+		opts := options.Client().ApplyURI(uri)
 		client, err := mongo.NewClient(opts)
 		if err != nil {
 			return err
@@ -32,7 +36,12 @@ func SetupMongoDatabase(cfg config.Database) Repo {
 			return err
 		}
 
-		db := client.Database(cfg.Database())
+		databaseName, err := cfg.Database()
+		if err != nil {
+			return err
+		}
+
+		db := client.Database(databaseName)
 
 		return cb(ctx, db)
 	}
@@ -54,11 +63,16 @@ func (r *lazyMongoRepo) RegisterCommand(ctx context.Context, guildId string, com
 			CommandName: commandName,
 		}
 
-		filter := bson.D{{"guild_id", guildId}}
-		update := toInterfaceSlice(reg)
+		filter := bson.D{
+			{"guild_id", guildId},
+			{"command_id", commandId},
+		}
+
+		upsert := bson.M{"$set": reg}
+
 		upsertOpts := options.Update().SetUpsert(true)
 
-		_, err := coll.UpdateMany(ctx, filter, update, upsertOpts)
+		_, err := coll.UpdateOne(ctx, filter, upsert, upsertOpts)
 		if err != nil {
 			return err
 		}
@@ -142,10 +156,10 @@ func (r *lazyMongoRepo) SetGuildConfig(ctx context.Context, config *GuildConfig)
 		coll := db.Collection(GuildConfigCollection.String())
 
 		filter := bson.D{{"guild_id", config.GuildId}}
-		update := toInterfaceSlice(config)
+		upsert := bson.M{"$set": config}
 		upsertOpts := options.Update().SetUpsert(true)
 
-		_, err := coll.UpdateMany(ctx, filter, update, upsertOpts)
+		_, err := coll.UpdateMany(ctx, filter, upsert, upsertOpts)
 		if err != nil {
 			return err
 		}
@@ -189,14 +203,4 @@ func (r *lazyMongoRepo) ClearGuildInfo(ctx context.Context, guildId string) erro
 
 		return nil
 	})
-}
-
-func toInterfaceSlice[v any](things ...v) []interface{} {
-
-	var interfaces []interface{}
-	for _, thing := range things {
-		interfaces = append(interfaces, thing)
-	}
-
-	return interfaces
 }
