@@ -6,7 +6,7 @@ on:
 
 jobs:
 
-  build:
+  docker:
     name: Build and push the Docker image
     runs-on: ubuntu-latest
     
@@ -24,6 +24,7 @@ jobs:
           --build-arg GIT_DIRTY="false" \
           --build-arg VERSION="${{ github.event.release.tag_name }}" \
           .
+
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v1.12.0
       with:
@@ -31,5 +32,5 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Push API Docker image
+    - name: Push Docker image
       run: docker push ${{ env.IMAGE_NAME }}
