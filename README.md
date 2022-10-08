@@ -30,10 +30,6 @@ docker run \
   ghcr.io/yukitsune/minialert:latest
 ```
 
-## Precompiled Binary
-
-Precompiled binaries can be downloaded from the [releases](https://github.com/yukitsune/minialert/releases) section on GitHub.
-
 ## Compiling from Source
 
 Minialert can be combined from source by running the following command:
