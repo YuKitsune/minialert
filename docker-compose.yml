@@ -15,11 +15,17 @@ services:
 
   minialert:
     build:
-      context: ../
       dockerfile: Dockerfile
 
     environment:
+
+      # Logging
       MINIALERT_LOG_LEVEL: debug
+
+      # Discord
+      MINIALERT_BOT_TOKEN: ${MINIALERT_BOT_TOKEN}
+      MINIALERT_BOT_CLIENTID: ${MINIALERT_BOT_CLIENTID}
+      MINIALERT_BOT_PERMISSIONS: ${MINIALERT_BOT_PERMISSIONS}
 
       # Database
       MINIALERT_DATABASE_URI: ${MINIALERT_DATABASE_URI}
