@@ -6,7 +6,7 @@ database:
   # The name of the database to use.
   name: "minialert"
 
-  # Whether or not to use an in-memory database.
+  # Whether to use an in-memory database.
   # Note: All data will be lost after the program has exited.
   inMemory: false
 
@@ -21,7 +21,8 @@ bot:
   # The permissions integer represented as a string.
   # Discord provides resources to help determine the permissions number:
   # https://discord.com/developers/docs/topics/community-resources#permission-calculators
-  permissions:
+  # The minimum required permissions are "Send Messages" and "Use Slask Commands"
+  permissions: 2147485696
 
   # (Optional) The list of scopes which the bot requires.
   # Defaults to "bot", "application.commands".
