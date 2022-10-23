@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func Setup(configFile string, v *viper.Viper, logger logrus.FieldLogger) (Config, error) {
+func Setup(configFile string, v *viper.Viper, logger logrus.FieldLogger) Config {
 
 	// Set defaults
 	v.SetDefault("prometheus.timeoutSeconds", 5)
@@ -22,7 +22,7 @@ func Setup(configFile string, v *viper.Viper, logger logrus.FieldLogger) (Config
 
 	// Config file
 	if len(configFile) > 0 {
-		logrus.Infof("🔧 Loading config from %s", configFile)
+		logger.Infof("🔧 Loading config from %s", configFile)
 		v.SetConfigFile(configFile)
 	} else {
 		v.SetConfigName("minialert")
@@ -40,14 +40,8 @@ func Setup(configFile string, v *viper.Viper, logger logrus.FieldLogger) (Config
 	})
 
 	// Load config from file
-	err := v.ReadInConfig()
-	if err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, err
-		}
-	}
-
-	return NewConfigProvider(v), nil
+	_ = v.ReadInConfig()
+	return NewConfigProvider(v)
 }
 
 type Config interface {

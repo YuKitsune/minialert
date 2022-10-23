@@ -63,11 +63,7 @@ func run(_ *cobra.Command, _ []string) error {
 	// We'll configure it once we've loaded the config
 	logger := logrus.New()
 
-	cfg, err := config.Setup(configFile, viper.GetViper(), logger)
-	if err != nil {
-		return err
-	}
-
+	cfg := config.Setup(configFile, viper.GetViper(), logger)
 	configureLogging(logger, cfg.Log())
 
 	logger.Debugf("Config %s", cfg.Debug())
