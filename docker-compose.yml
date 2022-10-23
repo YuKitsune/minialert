@@ -31,9 +31,6 @@ services:
       MINIALERT_DATABASE_URI: ${MINIALERT_DATABASE_URI}
       MINIALERT_DATABASE_NAME: ${MINIALERT_DATABASE_NAME}
 
-    volumes:
-      - ../configs/minialert.yaml:/minialert.yaml
-
     depends_on:
       - database
 
