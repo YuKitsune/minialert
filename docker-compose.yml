@@ -1,28 +1,10 @@
 version: "3.9"
 services:
   database:
-    image: 'bitnami/mongodb:6.0.2'
+    image: 'mongo:latest'
     environment:
-
-      # Root user
-      MONGODB_ROOT_USER: ${MONGO_INITDB_ROOT_USERNAME}
-      MONGODB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-
-      # Minialert user
-      MONGODB_USERNAME: ${MONGO_MINIALERT_USERNAME}
-      MONGODB_PASSWORD: ${MONGO_MINIALERT_PASSWORD}
-      MONGODB_DATABASE: ${MONGO_MINIALERT_DATABASE}
-
-      # ReplicaSet stuff
-      # Use this when minialert is running via docker compose
-      # MONGODB_ADVERTISED_HOSTNAME: database
-
-      # Use this when minialert is running outside of docker compose
-      MONGODB_ADVERTISED_HOSTNAME: localhost
-
-      MONGODB_REPLICA_SET_NAME: rs0
-      MONGODB_REPLICA_SET_MODE: primary
-      MONGODB_REPLICA_SET_KEY: rs0key
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_MINIALERT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_MINIALERT_PASSWORD}
 
     ports:
       - "27017:27017"
