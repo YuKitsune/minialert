@@ -21,7 +21,7 @@ type MessageInteractionId string
 
 func (id MessageInteractionId) Name() (InteractionName, bool) {
 	parts := strings.Split(id.String(), MessageInteractionIdSeparator)
-	if len(parts) != 2 {
+	if len(parts) < 1 {
 		return "", false
 	}
 
