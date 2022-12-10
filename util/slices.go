@@ -21,9 +21,9 @@ func RemoveMatching[T any](s []T, match func(t T) bool) []T {
 }
 
 func FindMatching[T any](s []T, match func(t T) bool) (*T, bool) {
-	for _, t := range s {
+	for i, t := range s {
 		if match(t) {
-			return &t, true
+			return &s[i], true
 		}
 	}
 

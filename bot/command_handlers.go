@@ -6,9 +6,8 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/sirupsen/logrus"
 	"github.com/yukitsune/minialert/db"
-	"github.com/yukitsune/minialert/prometheus"
+	"github.com/yukitsune/minialert/handlers"
 	"github.com/yukitsune/minialert/scraper"
-	"github.com/yukitsune/minialert/util"
 	"strings"
 )
 
@@ -99,32 +98,13 @@ func getAlertsHandler(repo db.Repo) InteractionHandler {
 
 		configName := configNameOpt.StringValue()
 
-		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
+		alerts, err := handlers.GetAlerts(ctx, repo, i.GuildID, configName)
 		if err != nil {
-			logger.Errorf("Failed to get guild config: %s", err.Error())
-			respondWithError(s, i, logger, "Failed to get inhibited alerts.")
-			return
+			logger.Errorf("Failed to get alerts: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to get alerts.")
 		}
 
-		scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
-			return cfg.Name == configName
-		})
-		if !ok {
-			respondWithError(s, i, logger, fmt.Sprintf("Couldn't find scrape config with name \"%s\".", configName))
-			return
-		}
-
-		client := prometheus.NewPrometheusClientFromScrapeConfig(scrapeConfig)
-		alerts, err := client.GetAlerts()
-
-		filteredAlerts, err := filterAlerts(alerts, scrapeConfig.Inhibitions)
-		if err != nil {
-			logger.Errorf("Failed to filter alerts: %s", err.Error())
-			respondWithError(s, i, logger, "Failed to filter alerts.")
-			return
-		}
-
-		sendAlertsToChannel(s, scrapeConfig, filteredAlerts, logger)
+		sendAlertsToChannel(s, configName, i.ChannelID, alerts, logger)
 	}
 }
 
@@ -142,31 +122,22 @@ func showInhibitedAlertsHandler(repo db.Repo) InteractionHandler {
 		}
 
 		configName := configNameOpt.StringValue()
-
-		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
+		inhibitions, err := handlers.GetInhibitions(ctx, configName, i.GuildID, repo)
 		if err != nil {
-			logger.Errorf("Failed to get guild config: %s", err.Error())
-			respondWithError(s, i, logger, "Failed to get inhibited alerts.")
+			logger.Errorf("Failed to get inhibitions: %s", err.Error())
+			respondWithError(s, i, logger, fmt.Sprintf("Failed to get inhibitions: %s", err))
 			return
 		}
 
-		scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
-			return cfg.Name == configName
-		})
-		if !ok {
-			respondWithError(s, i, logger, fmt.Sprintf("Couldn't find scrape config with name \"%s\".", configName))
-			return
-		}
-
-		if len(scrapeConfig.Inhibitions) == 0 {
+		if len(inhibitions) == 0 {
 			respond(s, i, logger, fmt.Sprintf("No inhibitions set for %s.", configName))
 			return
 		}
 
 		var content string
-		for i2, inhibition := range scrapeConfig.Inhibitions {
+		for i2, inhibition := range inhibitions {
 			content += inhibition.AlertName
-			if i2 != len(scrapeConfig.Inhibitions)-1 {
+			if i2 != len(inhibitions)-1 {
 				content += ", "
 			}
 		}
@@ -198,26 +169,9 @@ func inhibitAlertHandler(repo db.Repo) InteractionHandler {
 
 		alertName := alertNameOpt.StringValue()
 
-		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
+		err := handlers.InhibitAlert(ctx, configName, i.GuildID, alertName, repo)
 		if err != nil {
-			logger.Errorf("Failed to get guild config: %s", err.Error())
-			respondWithError(s, i, logger, "Failed to get inhibited alerts.")
-			return
-		}
-
-		scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
-			return cfg.Name == configName
-		})
-		if !ok {
-			respondWithError(s, i, logger, fmt.Sprintf("Couldn't find scrape config with name \"%s\".", configName))
-			return
-		}
-
-		scrapeConfig.Inhibitions = append(scrapeConfig.Inhibitions, db.Inhibition{AlertName: alertName})
-
-		err = repo.SetGuildConfig(ctx, guildConfig)
-		if err != nil {
-			logger.Errorf("Failed to set guild config: %s", err.Error())
+			logger.Errorf("Failed to inhibit alert: %s", err.Error())
 			respondWithError(s, i, logger, "Failed to add inhibition.")
 			return
 		}
@@ -249,26 +203,7 @@ func uninhibitAlertHandler(repo db.Repo) InteractionHandler {
 
 		alertName := alertNameOpt.StringValue()
 
-		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
-		if err != nil {
-			logger.Errorf("Failed to get guild config: %s", err.Error())
-			respondWithError(s, i, logger, "Failed to get inhibited alerts.")
-			return
-		}
-
-		scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
-			return cfg.Name == configName
-		})
-		if !ok {
-			respondWithError(s, i, logger, fmt.Sprintf("Couldn't find scrape config with name \"%s\".", configName))
-			return
-		}
-
-		scrapeConfig.Inhibitions = util.RemoveMatching(scrapeConfig.Inhibitions, func(inhib db.Inhibition) bool {
-			return inhib.AlertName == alertName
-		})
-
-		err = repo.SetGuildConfig(ctx, guildConfig)
+		err := handlers.UninhibitAlert(ctx, configName, i.GuildID, alertName, repo)
 		if err != nil {
 			logger.Errorf("Failed to set guild config: %s", err.Error())
 			respondWithError(s, i, logger, "Failed to remove inhibition.")
@@ -294,24 +229,7 @@ func inhibitAlertFromMessageHandler(repo db.Repo) InteractionHandler {
 		configName := values[0]
 		alertName := values[1]
 
-		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
-		if err != nil {
-			logger.Errorf("Failed to get guild config: %s", err.Error())
-			respondWithError(s, i, logger, "Failed to get inhibited alerts.")
-			return
-		}
-
-		scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
-			return cfg.Name == configName
-		})
-		if !ok {
-			respondWithError(s, i, logger, fmt.Sprintf("Couldn't find scrape config with name \"%s\".", configName))
-			return
-		}
-
-		scrapeConfig.Inhibitions = append(scrapeConfig.Inhibitions, db.Inhibition{AlertName: alertName})
-
-		err = repo.SetGuildConfig(ctx, guildConfig)
+		err := handlers.InhibitAlert(ctx, configName, i.GuildID, alertName, repo)
 		if err != nil {
 			logger.Errorf("Failed to set guild config: %s", err.Error())
 			respondWithError(s, i, logger, "Failed to add inhibition.")
@@ -502,39 +420,46 @@ func removeScrapeConfigCommandHandler(repo db.Repo, scrapeManager *scraper.Scrap
 
 		configName := configNameOpt.StringValue()
 
-		guildConfig, err := repo.GetGuildConfig(ctx, i.GuildID)
+		err := removeScrapeConfig(ctx, repo, scrapeManager, i.GuildID, configName)
 		if err != nil {
-			logger.Errorf("Failed to get guild config: %s", err.Error())
-			respondWithError(s, i, logger, "Failed to guild scrape config.")
-		}
-
-		removed := false
-		for i, cfg := range guildConfig.ScrapeConfigs {
-			if cfg.Name == configName {
-				guildConfig.ScrapeConfigs = append(guildConfig.ScrapeConfigs[:i], guildConfig.ScrapeConfigs[i+1:]...)
-				removed = true
-				break
-			}
-		}
-
-		if !removed {
-			respondWithError(s, i, logger, fmt.Sprintf("Couldn't find scrape config with name \"%s\".", configName))
-			return
-		}
-
-		err = repo.SetGuildConfig(context.Background(), guildConfig)
-		if err != nil {
-			logger.Errorf("Failed to set guild config: %s", err.Error())
+			logger.Errorf("Failed to remove scrape config: %s", err)
 			respondWithError(s, i, logger, "Failed to remove scrape config.")
 			return
 		}
 
-		err = scrapeManager.Stop(guildConfig.GuildId, configName)
-		if err != nil {
-			respondWithError(s, i, logger, "Failed to stop scraper.")
-			logger.Fatalf("Failed to stop scraper: %s", err.Error())
-		}
-
-		respondWithSuccess(s, i, logger, "Start config removed.")
+		respondWithSuccess(s, i, logger, "Scrape config removed.")
 	}
+}
+
+func removeScrapeConfig(ctx context.Context, repo db.Repo, scrapeManager *scraper.ScrapeManager, guildId string, configName string) error {
+
+	guildConfig, err := repo.GetGuildConfig(ctx, guildId)
+	if err != nil {
+		return fmt.Errorf("failed to get guild config: %s", err)
+	}
+
+	removed := false
+	for i, cfg := range guildConfig.ScrapeConfigs {
+		if cfg.Name == configName {
+			guildConfig.ScrapeConfigs = append(guildConfig.ScrapeConfigs[:i], guildConfig.ScrapeConfigs[i+1:]...)
+			removed = true
+			break
+		}
+	}
+
+	if !removed {
+		return fmt.Errorf("couldn't find scrape config with name: \"%s\"", configName)
+	}
+
+	err = repo.SetGuildConfig(ctx, guildConfig)
+	if err != nil {
+		return fmt.Errorf("failed to set guild config: %s", err.Error())
+	}
+
+	err = scrapeManager.Stop(guildConfig.GuildId, configName)
+	if err != nil {
+		return fmt.Errorf("failed to stop scraper: %s", err.Error())
+	}
+
+	return nil
 }
