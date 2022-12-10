@@ -414,7 +414,7 @@ func removeScrapeConfigCommandHandler(repo db.Repo, scrapeManager *scraper.Scrap
 
 		configName := configNameOpt.StringValue()
 
-		err := removeScrapeConfig(ctx, repo, scrapeManager, i.GuildID, configName)
+		err := handlers.RemoveScrapeConfig(ctx, repo, scrapeManager, i.GuildID, configName)
 		if err != nil {
 			logger.Errorf("Failed to remove scrape config: %s", err)
 			respondWithError(s, i, logger, "Failed to remove scrape config.")
@@ -423,37 +423,4 @@ func removeScrapeConfigCommandHandler(repo db.Repo, scrapeManager *scraper.Scrap
 
 		respondWithSuccess(s, i, logger, "Scrape config removed.")
 	}
-}
-
-func removeScrapeConfig(ctx context.Context, repo db.Repo, scrapeManager *scraper.ScrapeManager, guildId string, configName string) error {
-
-	guildConfig, err := repo.GetGuildConfig(ctx, guildId)
-	if err != nil {
-		return fmt.Errorf("failed to get guild config: %s", err)
-	}
-
-	removed := false
-	for i, cfg := range guildConfig.ScrapeConfigs {
-		if cfg.Name == configName {
-			guildConfig.ScrapeConfigs = append(guildConfig.ScrapeConfigs[:i], guildConfig.ScrapeConfigs[i+1:]...)
-			removed = true
-			break
-		}
-	}
-
-	if !removed {
-		return fmt.Errorf("couldn't find scrape config with name: \"%s\"", configName)
-	}
-
-	err = repo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		return fmt.Errorf("failed to set guild config: %s", err.Error())
-	}
-
-	err = scrapeManager.Stop(guildConfig.GuildId, configName)
-	if err != nil {
-		return fmt.Errorf("failed to stop scraper: %s", err.Error())
-	}
-
-	return nil
 }

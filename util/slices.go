@@ -10,10 +10,11 @@ func HasMatching[T any](ts []T, fn func(v T) bool) bool {
 	return false
 }
 
-func RemoveMatching[T any](s []T, match func(t T) bool) []T {
+func RemoveMatches[T any](s []T, match func(t T) bool) []T {
 	for i, t := range s {
 		if match(t) {
-			Remove(s, i)
+			s[i] = s[len(s)-1]
+			s = s[:len(s)-1]
 		}
 	}
 
@@ -28,9 +29,4 @@ func FindMatching[T any](s []T, match func(t T) bool) (*T, bool) {
 	}
 
 	return nil, false
-}
-
-func Remove[T any](s []T, i int) []T {
-	s[i] = s[len(s)-1]
-	return s[:len(s)-1]
 }

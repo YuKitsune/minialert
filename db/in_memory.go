@@ -88,11 +88,11 @@ func (r *inMemoryRepo) DeleteGuildConfig(_ context.Context, guildId string) erro
 }
 
 func (r *inMemoryRepo) ClearGuildInfo(_ context.Context, guildId string) error {
-	r.registeredCommands = util.RemoveMatching(r.registeredCommands, func(command CommandRegistration) bool {
+	r.registeredCommands = util.RemoveMatches(r.registeredCommands, func(command CommandRegistration) bool {
 		return command.GuildId == guildId
 	})
 
-	r.guildConfigs = util.RemoveMatching(r.guildConfigs, func(config GuildConfig) bool {
+	r.guildConfigs = util.RemoveMatches(r.guildConfigs, func(config GuildConfig) bool {
 		return config.GuildId == guildId
 	})
 

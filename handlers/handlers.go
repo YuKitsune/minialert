@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/yukitsune/minialert/db"
 	"github.com/yukitsune/minialert/prometheus"
+	"github.com/yukitsune/minialert/scraper"
 	"github.com/yukitsune/minialert/util"
 )
 
@@ -65,12 +66,6 @@ func InhibitAlert(ctx context.Context, configName string, guildId string, alertN
 		}
 	}
 
-	//for _, config := range guildConfig.ScrapeConfigs {
-	//	if config.Name == configName {
-	//		scrapeConfig = &config
-	//	}
-	//}
-
 	if scrapeConfig == nil {
 		return fmt.Errorf("couldn't find scrape config with name \"%s\"", configName)
 	}
@@ -93,13 +88,46 @@ func UninhibitAlert(ctx context.Context, configName string, guildId string, aler
 		return cfg.Name == configName
 	})
 	if !ok {
-		fmt.Errorf("couldn't find scrape config with name \"%s\"", configName)
+		return fmt.Errorf("couldn't find scrape config with name \"%s\"", configName)
 	}
 
-	scrapeConfig.InhibitedAlerts = util.RemoveMatching(scrapeConfig.InhibitedAlerts, func(inhibitedAlert string) bool {
+	scrapeConfig.InhibitedAlerts = util.RemoveMatches(scrapeConfig.InhibitedAlerts, func(inhibitedAlert string) bool {
 		return inhibitedAlert == alertName
 	})
 
 	err = repo.SetGuildConfig(ctx, guildConfig)
 	return err
+}
+
+func RemoveScrapeConfig(ctx context.Context, repo db.Repo, scrapeManager *scraper.ScrapeManager, guildId string, configName string) error {
+
+	guildConfig, err := repo.GetGuildConfig(ctx, guildId)
+	if err != nil {
+		return fmt.Errorf("failed to get guild config: %s", err)
+	}
+
+	removed := false
+	for i, cfg := range guildConfig.ScrapeConfigs {
+		if cfg.Name == configName {
+			guildConfig.ScrapeConfigs = append(guildConfig.ScrapeConfigs[:i], guildConfig.ScrapeConfigs[i+1:]...)
+			removed = true
+			break
+		}
+	}
+
+	if !removed {
+		return fmt.Errorf("couldn't find scrape config with name: \"%s\"", configName)
+	}
+
+	err = repo.SetGuildConfig(ctx, guildConfig)
+	if err != nil {
+		return fmt.Errorf("failed to set guild config: %s", err.Error())
+	}
+
+	err = scrapeManager.Stop(guildConfig.GuildId, configName)
+	if err != nil {
+		return fmt.Errorf("failed to stop scraper: %s", err.Error())
+	}
+
+	return nil
 }
