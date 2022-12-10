@@ -46,7 +46,7 @@ func watchAlerts(done chan bool, s *discordgo.Session, repo db.Repo, scrapeManag
 				return
 			}
 
-			filteredAlerts, err := prometheus.FilterAlerts(results.Alerts, scrapeConfig.Inhibitions)
+			filteredAlerts, err := prometheus.FilterAlerts(results.Alerts, scrapeConfig.InhibitedAlerts)
 			if err != nil {
 				logger.Errorf("Failed to filter alerts: %s", err.Error())
 				continue

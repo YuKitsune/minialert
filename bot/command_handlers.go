@@ -134,14 +134,7 @@ func showInhibitedAlertsHandler(repo db.Repo) InteractionHandler {
 			return
 		}
 
-		var content string
-		for i2, inhibition := range inhibitions {
-			content += inhibition.AlertName
-			if i2 != len(inhibitions)-1 {
-				content += ", "
-			}
-		}
-
+		content := strings.Join(inhibitions, ",")
 		respond(s, i, logger, content)
 	}
 }
@@ -282,7 +275,7 @@ func createScrapeConfigCommandHandler(repo db.Repo, scrapeManager *scraper.Scrap
 			Endpoint:              endpointOpt.StringValue(),
 			ScrapeIntervalMinutes: intervalMinsOpt.IntValue(),
 			AlertChannelId:        channel.ID,
-			Inhibitions:           make([]db.Inhibition, 0),
+			InhibitedAlerts:       []string{},
 		}
 
 		// Todo: Don't source credentials from a discord interaction... Maybe provide a link to an external form? (New project idea?)
