@@ -8,7 +8,7 @@ import (
 	"github.com/yukitsune/minialert/util"
 )
 
-func GetAlerts(ctx context.Context, repo db.Repo, guildId string, configName string) (prometheus.Alerts, error) {
+func GetAlerts(ctx context.Context, repo db.Repo, clientFactory prometheus.ClientFactory, guildId string, configName string) (prometheus.Alerts, error) {
 
 	guildConfig, err := repo.GetGuildConfig(ctx, guildId)
 	if err != nil {
@@ -22,7 +22,7 @@ func GetAlerts(ctx context.Context, repo db.Repo, guildId string, configName str
 		return nil, fmt.Errorf("couldn't find scrape config with name \"%s\"", configName)
 	}
 
-	client := prometheus.NewPrometheusClientFromScrapeConfig(scrapeConfig)
+	client := clientFactory(scrapeConfig)
 	alerts, err := client.GetAlerts()
 
 	filteredAlerts, err := prometheus.FilterAlerts(alerts, scrapeConfig.InhibitedAlerts)

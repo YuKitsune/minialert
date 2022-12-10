@@ -11,6 +11,7 @@ import (
 	"github.com/yukitsune/minialert/config"
 	"github.com/yukitsune/minialert/db"
 	"github.com/yukitsune/minialert/grace"
+	"github.com/yukitsune/minialert/prometheus"
 	"github.com/yukitsune/minialert/scraper"
 	"log"
 )
@@ -70,9 +71,11 @@ func run(_ *cobra.Command, _ []string) error {
 
 	repo := configureRepo(cfg.Database(), logger)
 
-	scrapeManager := scraper.NewScrapeManager(logger)
+	clientFactory := prometheus.NewClientFromScrapeConfig
 
-	b := bot.New(cfg.Bot(), repo, scrapeManager, logger)
+	scrapeManager := scraper.NewScrapeManager(clientFactory, logger)
+
+	b := bot.New(cfg.Bot(), repo, clientFactory, scrapeManager, logger)
 
 	errorsChan := make(chan error)
 	go func() {

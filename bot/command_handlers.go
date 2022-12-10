@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/yukitsune/minialert/db"
 	"github.com/yukitsune/minialert/handlers"
+	"github.com/yukitsune/minialert/prometheus"
 	"github.com/yukitsune/minialert/scraper"
 	"strings"
 )
@@ -54,9 +55,9 @@ func NewMessageInteractionId(name InteractionName, values ...string) MessageInte
 
 type MessageInteractionHandlers map[InteractionName]InteractionHandler
 
-func getInteractionHandlers(repo db.Repo, scrapeManager *scraper.ScrapeManager) InteractionHandlers {
+func getInteractionHandlers(repo db.Repo, clientFactory prometheus.ClientFactory, scrapeManager *scraper.ScrapeManager) InteractionHandlers {
 	return map[InteractionName]InteractionHandler{
-		GetAlertsCommandName: getAlertsHandler(repo),
+		GetAlertsCommandName: getAlertsHandler(repo, clientFactory),
 
 		ShowInhibitedAlertsCommandName: showInhibitedAlertsHandler(repo),
 		InhibitAlertCommandName:        inhibitAlertHandler(repo),
@@ -83,7 +84,7 @@ func getOptionMap(options []*discordgo.ApplicationCommandInteractionDataOption) 
 	return optionMap
 }
 
-func getAlertsHandler(repo db.Repo) InteractionHandler {
+func getAlertsHandler(repo db.Repo, clientFactory prometheus.ClientFactory) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
 		ctx := context.TODO()
@@ -98,7 +99,7 @@ func getAlertsHandler(repo db.Repo) InteractionHandler {
 
 		configName := configNameOpt.StringValue()
 
-		alerts, err := handlers.GetAlerts(ctx, repo, i.GuildID, configName)
+		alerts, err := handlers.GetAlerts(ctx, repo, clientFactory, i.GuildID, configName)
 		if err != nil {
 			logger.Errorf("Failed to get alerts: %s", err.Error())
 			respondWithError(s, i, logger, "Failed to get alerts.")

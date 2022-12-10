@@ -21,16 +21,18 @@ type ScrapeResult struct {
 }
 
 type ScrapeManager struct {
-	logger      logrus.FieldLogger
-	resultsChan chan ScrapeResult
-	quitters    map[key]func()
+	clientFactory prometheus.ClientFactory
+	logger        logrus.FieldLogger
+	resultsChan   chan ScrapeResult
+	quitters      map[key]func()
 }
 
-func NewScrapeManager(logger logrus.FieldLogger) *ScrapeManager {
+func NewScrapeManager(clientFactory prometheus.ClientFactory, logger logrus.FieldLogger) *ScrapeManager {
 	return &ScrapeManager{
-		logger:      logger,
-		resultsChan: make(chan ScrapeResult),
-		quitters:    make(map[key]func()),
+		clientFactory: clientFactory,
+		logger:        logger,
+		resultsChan:   make(chan ScrapeResult),
+		quitters:      make(map[key]func()),
 	}
 }
 
@@ -73,7 +75,7 @@ func (m *ScrapeManager) Stop(guildId string, name string) error {
 
 func (m *ScrapeManager) scrape(guildId string, config *db.ScrapeConfig, logger logrus.FieldLogger, quitChan chan bool) {
 	dur := time.Duration(config.ScrapeIntervalMinutes) * time.Minute
-	client := prometheus.NewPrometheusClientFromScrapeConfig(config)
+	client := m.clientFactory(config)
 
 	ctxLogger := logger.
 		WithField("guild_id", guildId).
