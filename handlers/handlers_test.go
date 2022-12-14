@@ -5,6 +5,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/yukitsune/minialert/db"
 	"github.com/yukitsune/minialert/prometheus"
+	"github.com/yukitsune/minialert/scraper"
 	"github.com/yukitsune/minialert/util"
 	"golang.org/x/exp/slices"
 	"testing"
@@ -16,6 +17,38 @@ type FakePrometheusClient struct {
 
 func (f *FakePrometheusClient) GetAlerts() (prometheus.Alerts, error) {
 	return f.Alerts, nil
+}
+
+type Scraper struct {
+	GuildId string
+	Config  *db.ScrapeConfig
+}
+
+type FakeScrapeManager struct {
+	ActiveScrapers []Scraper
+}
+
+func (f *FakeScrapeManager) Start(guildId string, config *db.ScrapeConfig) {
+	f.ActiveScrapers = append(f.ActiveScrapers, Scraper{
+		GuildId: guildId,
+		Config:  config,
+	})
+}
+
+func (f *FakeScrapeManager) Chan() chan scraper.ScrapeResult {
+	return make(chan scraper.ScrapeResult)
+}
+
+func (f *FakeScrapeManager) Restart(_ string, _ *db.ScrapeConfig) error {
+	return nil
+}
+
+func (f *FakeScrapeManager) Stop(guildId string, configName string) error {
+	f.ActiveScrapers = util.RemoveMatches(f.ActiveScrapers, func(s Scraper) bool {
+		return s.GuildId == guildId && s.Config.Name == configName
+	})
+
+	return nil
 }
 
 func TestGetAlertsGetsAlertsFromPrometheus(t *testing.T) {
@@ -249,5 +282,144 @@ func TestUninhibitAlertUpdatesConfig(t *testing.T) {
 	}
 }
 
-// Todo: GetInhibitions
-// Todo: RemoveScrapeConfig
+func TestGetInhibitionsGetsInhibitions(t *testing.T) {
+
+	// Arrange
+	ctx := context.Background()
+	logger := logrus.New()
+	repo := db.SetupInMemoryDatabase(logger)
+
+	guildId := "foo"
+	configName := "bar"
+	alertName := "zig"
+	guildConfig := &db.GuildConfig{
+		GuildId: guildId,
+		ScrapeConfigs: []db.ScrapeConfig{
+			{
+				Name:                  configName,
+				Endpoint:              "",
+				Username:              "",
+				Password:              "",
+				ScrapeIntervalMinutes: 0,
+				AlertChannelId:        "",
+				InhibitedAlerts:       []string{alertName},
+			},
+		},
+	}
+
+	err := repo.SetGuildConfig(ctx, guildConfig)
+	if err != nil {
+		t.Fail()
+	}
+
+	// Act
+	alertNames, err := GetInhibitions(ctx, configName, guildId, repo)
+	if err != nil {
+		t.Fail()
+	}
+
+	// Assert
+	if len(alertNames) != 1 {
+		t.Fail()
+	}
+
+	if alertNames[0] != alertName {
+		t.Fail()
+	}
+}
+
+// Todo: CreateScrapeConfigCreatesScrapeConfig
+// Todo: CreateScrapeConfigStartsScraper
+
+func TestRemoveScrapeConfigRemovesScrapeConfig(t *testing.T) {
+
+	// Arrange
+	ctx := context.Background()
+	logger := logrus.New()
+	repo := db.SetupInMemoryDatabase(logger)
+	scrapeManager := &FakeScrapeManager{}
+
+	guildId := "foo"
+	configName := "bar"
+	alertName := "zig"
+	guildConfig := &db.GuildConfig{
+		GuildId: guildId,
+		ScrapeConfigs: []db.ScrapeConfig{
+			{
+				Name:                  configName,
+				Endpoint:              "",
+				Username:              "",
+				Password:              "",
+				ScrapeIntervalMinutes: 0,
+				AlertChannelId:        "",
+				InhibitedAlerts:       []string{alertName},
+			},
+		},
+	}
+
+	err := repo.SetGuildConfig(ctx, guildConfig)
+	if err != nil {
+		t.Fail()
+	}
+
+	// Act
+	err = RemoveScrapeConfig(ctx, repo, scrapeManager, guildId, configName)
+	if err != nil {
+		t.Fail()
+	}
+
+	// Assert
+	guildConfig, err = repo.GetGuildConfig(ctx, guildId)
+	if len(guildConfig.ScrapeConfigs) != 0 {
+		t.Fail()
+	}
+}
+
+func TestRemoveScrapeConfigStopsScraper(t *testing.T) {
+
+	// Arrange
+	ctx := context.Background()
+	logger := logrus.New()
+	repo := db.SetupInMemoryDatabase(logger)
+	scrapeManager := &FakeScrapeManager{}
+
+	guildId := "foo"
+	configName := "bar"
+	alertName := "zig"
+	scrapeConfig := db.ScrapeConfig{
+		Name:                  configName,
+		Endpoint:              "",
+		Username:              "",
+		Password:              "",
+		ScrapeIntervalMinutes: 0,
+		AlertChannelId:        "",
+		InhibitedAlerts:       []string{alertName},
+	}
+	guildConfig := &db.GuildConfig{
+		GuildId:       guildId,
+		ScrapeConfigs: []db.ScrapeConfig{scrapeConfig},
+	}
+
+	err := repo.SetGuildConfig(ctx, guildConfig)
+	if err != nil {
+		t.Fail()
+	}
+
+	scrapeManager.Start(guildId, &scrapeConfig)
+
+	// Sanity check
+	if len(scrapeManager.ActiveScrapers) != 1 {
+		t.Fail()
+	}
+
+	// Act
+	err = RemoveScrapeConfig(ctx, repo, scrapeManager, guildId, configName)
+	if err != nil {
+		t.Fail()
+	}
+
+	// Assert
+	if len(scrapeManager.ActiveScrapers) != 0 {
+		t.Fail()
+	}
+}
