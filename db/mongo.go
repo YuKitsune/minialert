@@ -168,21 +168,6 @@ func (r *lazyMongoRepo) SetGuildConfig(ctx context.Context, config *GuildConfig)
 	})
 }
 
-func (r *lazyMongoRepo) DeleteGuildConfig(ctx context.Context, guildId string) error {
-	return r.dbFunc(ctx, func(ctx context.Context, db *mongo.Database) error {
-		coll := db.Collection(GuildConfigCollection.String())
-
-		filter := bson.D{{"guild_id", guildId}}
-
-		_, err := coll.DeleteOne(ctx, filter)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-}
-
 func (r *lazyMongoRepo) ClearGuildInfo(ctx context.Context, guildId string) error {
 	return r.dbFunc(ctx, func(ctx context.Context, db *mongo.Database) error {
 

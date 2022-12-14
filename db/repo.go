@@ -53,6 +53,5 @@ type Repo interface {
 	GetGuildConfigs(ctx context.Context) ([]GuildConfig, error)
 	GetGuildConfig(ctx context.Context, guildId string) (*GuildConfig, error)
 	SetGuildConfig(ctx context.Context, config *GuildConfig) error
-	DeleteGuildConfig(ctx context.Context, guildId string) error
 	ClearGuildInfo(ctx context.Context, guildId string) error
 }

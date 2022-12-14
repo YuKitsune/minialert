@@ -76,17 +76,6 @@ func (r *inMemoryRepo) SetGuildConfig(_ context.Context, config *GuildConfig) er
 	return nil
 }
 
-func (r *inMemoryRepo) DeleteGuildConfig(_ context.Context, guildId string) error {
-	for i, cfg := range r.guildConfigs {
-		if cfg.GuildId == guildId {
-			r.guildConfigs = append(r.guildConfigs[:i], r.guildConfigs[i+1:]...)
-			return nil
-		}
-	}
-
-	return fmt.Errorf("no config found for guild %s", guildId)
-}
-
 func (r *inMemoryRepo) ClearGuildInfo(_ context.Context, guildId string) error {
 	r.registeredCommands = slices.RemoveMatches(r.registeredCommands, func(command CommandRegistration) bool {
 		return command.GuildId == guildId
