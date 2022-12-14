@@ -55,7 +55,7 @@ func NewMessageInteractionId(name InteractionName, values ...string) MessageInte
 
 type MessageInteractionHandlers map[InteractionName]InteractionHandler
 
-func getInteractionHandlers(repo db.Repo, clientFactory prometheus.ClientFactory, scrapeManager *scraper.ScrapeManager) InteractionHandlers {
+func getInteractionHandlers(repo db.Repo, clientFactory prometheus.ClientFactory, scrapeManager scraper.ScrapeManager) InteractionHandlers {
 	return map[InteractionName]InteractionHandler{
 		GetAlertsCommandName: getAlertsHandler(repo, clientFactory),
 
@@ -234,7 +234,7 @@ func inhibitAlertFromMessageHandler(repo db.Repo) InteractionHandler {
 	}
 }
 
-func createScrapeConfigCommandHandler(repo db.Repo, scrapeManager *scraper.ScrapeManager) InteractionHandler {
+func createScrapeConfigCommandHandler(repo db.Repo, scrapeManager scraper.ScrapeManager) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
 		ctx := context.TODO()
@@ -316,7 +316,7 @@ func createScrapeConfigCommandHandler(repo db.Repo, scrapeManager *scraper.Scrap
 	}
 }
 
-func updateScrapeConfigCommandHandler(repo db.Repo, scrapeManager *scraper.ScrapeManager) InteractionHandler {
+func updateScrapeConfigCommandHandler(repo db.Repo, scrapeManager scraper.ScrapeManager) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
 		ctx := context.TODO()
@@ -399,7 +399,7 @@ func updateScrapeConfigCommandHandler(repo db.Repo, scrapeManager *scraper.Scrap
 	}
 }
 
-func removeScrapeConfigCommandHandler(repo db.Repo, scrapeManager *scraper.ScrapeManager) InteractionHandler {
+func removeScrapeConfigCommandHandler(repo db.Repo, scrapeManager scraper.ScrapeManager) InteractionHandler {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
 
 		ctx := context.TODO()

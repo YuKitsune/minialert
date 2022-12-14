@@ -99,7 +99,7 @@ func UninhibitAlert(ctx context.Context, configName string, guildId string, aler
 	return err
 }
 
-func RemoveScrapeConfig(ctx context.Context, repo db.Repo, scrapeManager *scraper.ScrapeManager, guildId string, configName string) error {
+func RemoveScrapeConfig(ctx context.Context, repo db.Repo, scrapeManager scraper.ScrapeManager, guildId string, configName string) error {
 
 	guildConfig, err := repo.GetGuildConfig(ctx, guildId)
 	if err != nil {

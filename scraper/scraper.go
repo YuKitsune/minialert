@@ -8,6 +8,13 @@ import (
 	"time"
 )
 
+type ScrapeManager interface {
+	Start(guildId string, config *db.ScrapeConfig)
+	Chan() chan ScrapeResult
+	Restart(guildId string, config *db.ScrapeConfig) error
+	Stop(guildId string, configName string) error
+}
+
 type key string
 
 func newQuitterKey(guildId string, configName string) key {
@@ -20,15 +27,15 @@ type ScrapeResult struct {
 	Alerts           prometheus.Alerts
 }
 
-type ScrapeManager struct {
+type scrapeManager struct {
 	clientFactory prometheus.ClientFactory
 	logger        logrus.FieldLogger
 	resultsChan   chan ScrapeResult
 	quitters      map[key]func()
 }
 
-func NewScrapeManager(clientFactory prometheus.ClientFactory, logger logrus.FieldLogger) *ScrapeManager {
-	return &ScrapeManager{
+func NewScrapeManager(clientFactory prometheus.ClientFactory, logger logrus.FieldLogger) ScrapeManager {
+	return &scrapeManager{
 		clientFactory: clientFactory,
 		logger:        logger,
 		resultsChan:   make(chan ScrapeResult),
@@ -36,7 +43,7 @@ func NewScrapeManager(clientFactory prometheus.ClientFactory, logger logrus.Fiel
 	}
 }
 
-func (m *ScrapeManager) Start(guildId string, config *db.ScrapeConfig) {
+func (m *scrapeManager) Start(guildId string, config *db.ScrapeConfig) {
 	quit := make(chan bool)
 	key := newQuitterKey(guildId, config.Name)
 	m.quitters[key] = func() {
@@ -48,11 +55,11 @@ func (m *ScrapeManager) Start(guildId string, config *db.ScrapeConfig) {
 	go m.scrape(guildId, config, scrapeLogger, quit)
 }
 
-func (m *ScrapeManager) Chan() chan ScrapeResult {
+func (m *scrapeManager) Chan() chan ScrapeResult {
 	return m.resultsChan
 }
 
-func (m *ScrapeManager) Restart(guildId string, config *db.ScrapeConfig) error {
+func (m *scrapeManager) Restart(guildId string, config *db.ScrapeConfig) error {
 	if err := m.Stop(guildId, config.Name); err != nil {
 		return err
 	}
@@ -61,7 +68,7 @@ func (m *ScrapeManager) Restart(guildId string, config *db.ScrapeConfig) error {
 	return nil
 }
 
-func (m *ScrapeManager) Stop(guildId string, name string) error {
+func (m *scrapeManager) Stop(guildId string, name string) error {
 	key := newQuitterKey(guildId, name)
 	quit, ok := m.quitters[key]
 	if !ok {
@@ -73,7 +80,7 @@ func (m *ScrapeManager) Stop(guildId string, name string) error {
 	return nil
 }
 
-func (m *ScrapeManager) scrape(guildId string, config *db.ScrapeConfig, logger logrus.FieldLogger, quitChan chan bool) {
+func (m *scrapeManager) scrape(guildId string, config *db.ScrapeConfig, logger logrus.FieldLogger, quitChan chan bool) {
 	dur := time.Duration(config.ScrapeIntervalMinutes) * time.Minute
 	client := m.clientFactory(config)
 

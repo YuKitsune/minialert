@@ -24,7 +24,7 @@ func getFieldsFromLabels(alert prometheus.Alert) []*discordgo.MessageEmbedField 
 	return fields
 }
 
-func watchAlerts(done chan bool, s *discordgo.Session, repo db.Repo, scrapeManager *scraper.ScrapeManager, logger logrus.FieldLogger) {
+func watchAlerts(done chan bool, s *discordgo.Session, repo db.Repo, scrapeManager scraper.ScrapeManager, logger logrus.FieldLogger) {
 	for {
 		select {
 		case results := <-scrapeManager.Chan():
