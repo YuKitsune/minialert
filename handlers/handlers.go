@@ -6,7 +6,7 @@ import (
 	"github.com/yukitsune/minialert/db"
 	"github.com/yukitsune/minialert/prometheus"
 	"github.com/yukitsune/minialert/scraper"
-	"github.com/yukitsune/minialert/util"
+	"github.com/yukitsune/minialert/slices"
 )
 
 func GetAlerts(ctx context.Context, repo db.Repo, clientFactory prometheus.ClientFactory, guildId string, configName string) (prometheus.Alerts, error) {
@@ -16,7 +16,7 @@ func GetAlerts(ctx context.Context, repo db.Repo, clientFactory prometheus.Clien
 		return nil, fmt.Errorf("failed to get guild config: %s", err.Error())
 	}
 
-	scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+	scrapeConfig, ok := slices.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
 		return cfg.Name == configName
 	})
 	if !ok {
@@ -41,7 +41,7 @@ func GetInhibitions(ctx context.Context, configName string, guildId string, repo
 		return nil, fmt.Errorf("failed to get guild config: %s", err.Error())
 	}
 
-	scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+	scrapeConfig, ok := slices.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
 		return cfg.Name == configName
 	})
 	if !ok {
@@ -84,14 +84,14 @@ func UninhibitAlert(ctx context.Context, configName string, guildId string, aler
 		return fmt.Errorf("failed to get guild config: %s", err.Error())
 	}
 
-	scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+	scrapeConfig, ok := slices.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
 		return cfg.Name == configName
 	})
 	if !ok {
 		return fmt.Errorf("couldn't find scrape config with name \"%s\"", configName)
 	}
 
-	scrapeConfig.InhibitedAlerts = util.RemoveMatches(scrapeConfig.InhibitedAlerts, func(inhibitedAlert string) bool {
+	scrapeConfig.InhibitedAlerts = slices.RemoveMatches(scrapeConfig.InhibitedAlerts, func(inhibitedAlert string) bool {
 		return inhibitedAlert == alertName
 	})
 

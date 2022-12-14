@@ -6,8 +6,7 @@ import (
 	"github.com/yukitsune/minialert/db"
 	"github.com/yukitsune/minialert/prometheus"
 	"github.com/yukitsune/minialert/scraper"
-	"github.com/yukitsune/minialert/util"
-	"golang.org/x/exp/slices"
+	"github.com/yukitsune/minialert/slices"
 	"testing"
 )
 
@@ -44,7 +43,7 @@ func (f *FakeScrapeManager) Restart(_ string, _ *db.ScrapeConfig) error {
 }
 
 func (f *FakeScrapeManager) Stop(guildId string, configName string) error {
-	f.ActiveScrapers = util.RemoveMatches(f.ActiveScrapers, func(s Scraper) bool {
+	f.ActiveScrapers = slices.RemoveMatches(f.ActiveScrapers, func(s Scraper) bool {
 		return s.GuildId == guildId && s.Config.Name == configName
 	})
 
@@ -214,7 +213,7 @@ func TestInhibitAlertUpdatesConfig(t *testing.T) {
 		t.Fail()
 	}
 
-	scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(c db.ScrapeConfig) bool {
+	scrapeConfig, ok := slices.FindMatching(guildConfig.ScrapeConfigs, func(c db.ScrapeConfig) bool {
 		return c.Name == configName
 	})
 
@@ -269,7 +268,7 @@ func TestUninhibitAlertUpdatesConfig(t *testing.T) {
 		t.Fail()
 	}
 
-	scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(c db.ScrapeConfig) bool {
+	scrapeConfig, ok := slices.FindMatching(guildConfig.ScrapeConfigs, func(c db.ScrapeConfig) bool {
 		return c.Name == configName
 	})
 

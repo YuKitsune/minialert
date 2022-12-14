@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/yukitsune/minialert/db"
-	"github.com/yukitsune/minialert/util"
+	"github.com/yukitsune/minialert/slices"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -103,7 +103,7 @@ func FilterAlerts(alerts Alerts, inhibitedAlerts []string) (Alerts, error) {
 
 	var newAlerts Alerts
 	for _, alert := range alerts {
-		if !util.HasMatching(inhibitedAlerts, func(inhibitedAlert string) bool {
+		if !slices.HasMatching(inhibitedAlerts, func(inhibitedAlert string) bool {
 			alertName := alert.Labels["alertname"]
 			return inhibitedAlert == alertName
 		}) {

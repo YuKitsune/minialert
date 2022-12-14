@@ -1,4 +1,4 @@
-package util
+package slices
 
 func HasMatching[T any](ts []T, fn func(v T) bool) bool {
 	for _, t := range ts {
@@ -29,4 +29,14 @@ func FindMatching[T any](s []T, match func(t T) bool) (*T, bool) {
 	}
 
 	return nil, false
+}
+
+func Contains[T comparable](s []T, exp T) bool {
+	for _, elem := range s {
+		if elem == exp {
+			return true
+		}
+	}
+
+	return false
 }

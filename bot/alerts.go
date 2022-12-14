@@ -7,7 +7,7 @@ import (
 	"github.com/yukitsune/minialert/db"
 	"github.com/yukitsune/minialert/prometheus"
 	"github.com/yukitsune/minialert/scraper"
-	"github.com/yukitsune/minialert/util"
+	"github.com/yukitsune/minialert/slices"
 	"strconv"
 )
 
@@ -37,7 +37,7 @@ func watchAlerts(done chan bool, s *discordgo.Session, repo db.Repo, scrapeManag
 				return
 			}
 
-			scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+			scrapeConfig, ok := slices.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
 				return cfg.Name == results.ScrapeConfigName
 			})
 

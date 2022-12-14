@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"github.com/yukitsune/minialert/util"
+	"github.com/yukitsune/minialert/slices"
 )
 
 func SetupInMemoryDatabase(logger logrus.FieldLogger) Repo {
@@ -88,11 +88,11 @@ func (r *inMemoryRepo) DeleteGuildConfig(_ context.Context, guildId string) erro
 }
 
 func (r *inMemoryRepo) ClearGuildInfo(_ context.Context, guildId string) error {
-	r.registeredCommands = util.RemoveMatches(r.registeredCommands, func(command CommandRegistration) bool {
+	r.registeredCommands = slices.RemoveMatches(r.registeredCommands, func(command CommandRegistration) bool {
 		return command.GuildId == guildId
 	})
 
-	r.guildConfigs = util.RemoveMatches(r.guildConfigs, func(config GuildConfig) bool {
+	r.guildConfigs = slices.RemoveMatches(r.guildConfigs, func(config GuildConfig) bool {
 		return config.GuildId == guildId
 	})
 
