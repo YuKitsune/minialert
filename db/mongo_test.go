@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
+	"github.com/stretchr/testify/assert"
 	"github.com/yukitsune/minialert/slices"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -121,9 +122,7 @@ func TestRegisterCommand(t *testing.T) {
 
 	// Act
 	err := mongoRepo.RegisterCommand(ctx, guildId, commandId, commandName)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
 	db := mongoClient.Database(databaseName)
@@ -131,13 +130,10 @@ func TestRegisterCommand(t *testing.T) {
 	res := coll.FindOne(ctx, bson.D{{"guild_id", guildId}, {"command_id", commandId}})
 
 	var reg *CommandRegistration
-	if err = res.Decode(&reg); err != nil {
-		t.Fail()
-	}
+	err = res.Decode(&reg)
+	assert.NoError(t, err)
 
-	if reg.CommandName != commandName {
-		t.Fail()
-	}
+	assert.Equal(t, commandName, reg.CommandName)
 }
 
 func TestGetRegisterCommands(t *testing.T) {
@@ -147,22 +143,18 @@ func TestGetRegisterCommands(t *testing.T) {
 	commandId := "bar"
 	commandName := "baz"
 	err := mongoRepo.RegisterCommand(ctx, guildId, commandId, commandName)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Act
 	commands, err := mongoRepo.GetRegisteredCommands(ctx, guildId)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
-	if !slices.HasMatching(commands, func(c CommandRegistration) bool {
+	hasCommand := slices.HasMatching(commands, func(c CommandRegistration) bool {
 		return c.CommandId == commandId && c.CommandName == commandName
-	}) {
-		t.Fail()
-	}
+	})
+
+	assert.True(t, hasCommand)
 }
 
 func TestSetGuildConfig(t *testing.T) {
@@ -177,9 +169,7 @@ func TestSetGuildConfig(t *testing.T) {
 
 	// Act
 	err := mongoRepo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
 	db := mongoClient.Database(databaseName)
@@ -187,17 +177,11 @@ func TestSetGuildConfig(t *testing.T) {
 	res := coll.FindOne(ctx, bson.D{{"guild_id", guildId}})
 
 	var foundGuildConfig *GuildConfig
-	if err = res.Decode(&foundGuildConfig); err != nil {
-		t.Fail()
-	}
+	err = res.Decode(&foundGuildConfig)
+	assert.NoError(t, err)
 
-	if foundGuildConfig.GuildId != guildId {
-		t.Fail()
-	}
-
-	if len(foundGuildConfig.ScrapeConfigs) != 0 {
-		t.Fail()
-	}
+	assert.Equal(t, guildId, foundGuildConfig.GuildId)
+	assert.Empty(t, foundGuildConfig.ScrapeConfigs)
 }
 
 func TestSetGuildConfigAddsScrapeConfigs(t *testing.T) {
@@ -210,9 +194,7 @@ func TestSetGuildConfigAddsScrapeConfigs(t *testing.T) {
 		ScrapeConfigs: []ScrapeConfig{},
 	}
 	err := mongoRepo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Act
 	scrapeConfigName := "My scrape config"
@@ -230,9 +212,7 @@ func TestSetGuildConfigAddsScrapeConfigs(t *testing.T) {
 	guildConfig.ScrapeConfigs = append(guildConfig.ScrapeConfigs, scrapeConfig)
 
 	err = mongoRepo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
 	db := mongoClient.Database(databaseName)
@@ -240,19 +220,16 @@ func TestSetGuildConfigAddsScrapeConfigs(t *testing.T) {
 	res := coll.FindOne(ctx, bson.D{{"guild_id", guildId}})
 
 	var foundGuildConfig *GuildConfig
-	if err = res.Decode(&foundGuildConfig); err != nil {
-		t.Fail()
-	}
+	err = res.Decode(&foundGuildConfig)
+	assert.NoError(t, err)
 
-	if foundGuildConfig.GuildId != guildId {
-		t.Fail()
-	}
+	assert.Equal(t, guildId, foundGuildConfig.GuildId)
 
-	if !slices.HasMatching(foundGuildConfig.ScrapeConfigs, func(config ScrapeConfig) bool {
+	hasScrapeConfig := slices.HasMatching(foundGuildConfig.ScrapeConfigs, func(config ScrapeConfig) bool {
 		return config.Name == scrapeConfigName && slices.Contains(config.InhibitedAlerts, inhibitedAlertName)
-	}) {
-		t.Fail()
-	}
+	})
+
+	assert.True(t, hasScrapeConfig)
 }
 
 func TestSetGuildConfigUpdatesScrapeConfigs(t *testing.T) {
@@ -277,9 +254,7 @@ func TestSetGuildConfigUpdatesScrapeConfigs(t *testing.T) {
 		ScrapeConfigs: []ScrapeConfig{scrapeConfig},
 	}
 	err := mongoRepo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Act
 	scrapeConfig.InhibitedAlerts = slices.RemoveMatches(scrapeConfig.InhibitedAlerts, func(alertName string) bool {
@@ -291,9 +266,7 @@ func TestSetGuildConfigUpdatesScrapeConfigs(t *testing.T) {
 	guildConfig.ScrapeConfigs[0] = scrapeConfig
 
 	err = mongoRepo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
 	db := mongoClient.Database(databaseName)
@@ -301,19 +274,15 @@ func TestSetGuildConfigUpdatesScrapeConfigs(t *testing.T) {
 	res := coll.FindOne(ctx, bson.D{{"guild_id", guildId}})
 
 	var foundGuildConfig *GuildConfig
-	if err = res.Decode(&foundGuildConfig); err != nil {
-		t.Fail()
-	}
+	err = res.Decode(&foundGuildConfig)
+	assert.NoError(t, err)
 
-	if foundGuildConfig.GuildId != guildId {
-		t.Fail()
-	}
-
-	if !slices.HasMatching(foundGuildConfig.ScrapeConfigs, func(config ScrapeConfig) bool {
+	assert.Equal(t, guildId, foundGuildConfig.GuildId)
+	hasScrapeConfig := slices.HasMatching(foundGuildConfig.ScrapeConfigs, func(config ScrapeConfig) bool {
 		return config.Name == scrapeConfigName && config.Endpoint == newEndpoint && len(config.InhibitedAlerts) == 0
-	}) {
-		t.Fail()
-	}
+	})
+
+	assert.True(t, hasScrapeConfig)
 }
 
 func TestGetGuildConfig(t *testing.T) {
@@ -328,23 +297,14 @@ func TestGetGuildConfig(t *testing.T) {
 
 	// Act
 	err := mongoRepo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
 	foundGuildConfig, err := mongoRepo.GetGuildConfig(ctx, guildId)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
-	if foundGuildConfig.GuildId != guildId {
-		t.Fail()
-	}
-
-	if len(foundGuildConfig.ScrapeConfigs) != 0 {
-		t.Fail()
-	}
+	assert.Equal(t, guildId, foundGuildConfig.GuildId)
+	assert.Empty(t, foundGuildConfig.ScrapeConfigs)
 }
 
 func TestGetGuildConfigs(t *testing.T) {
@@ -365,36 +325,26 @@ func TestGetGuildConfigs(t *testing.T) {
 
 	// Act
 	err := mongoRepo.SetGuildConfig(ctx, guildConfig1)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	err = mongoRepo.SetGuildConfig(ctx, guildConfig2)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
 	foundGuildConfigs, err := mongoRepo.GetGuildConfigs(ctx)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
-	if len(foundGuildConfigs) != 2 {
-		t.Fail()
-	}
+	assert.Len(t, foundGuildConfigs, 2)
 
-	if !slices.HasMatching(foundGuildConfigs, func(config GuildConfig) bool {
+	hasGuild1 := slices.HasMatching(foundGuildConfigs, func(config GuildConfig) bool {
 		return config.GuildId == guildId1
-	}) {
-		t.Fail()
-	}
+	})
+	assert.True(t, hasGuild1)
 
-	if !slices.HasMatching(foundGuildConfigs, func(config GuildConfig) bool {
+	hasGuild2 := slices.HasMatching(foundGuildConfigs, func(config GuildConfig) bool {
 		return config.GuildId == guildId2
-	}) {
-		t.Fail()
-	}
+	})
+	assert.True(t, hasGuild2)
 }
 
 func TestClearGuildInfo(t *testing.T) {
@@ -410,32 +360,22 @@ func TestClearGuildInfo(t *testing.T) {
 	}
 
 	err := mongoRepo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	err = mongoRepo.RegisterCommand(ctx, guildId, commandId, commandName)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Act
 	err = mongoRepo.ClearGuildInfo(ctx, guildId)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
 	db := mongoClient.Database(databaseName)
 	commandsColl := db.Collection("command_registrations")
 	commandsCount, err := commandsColl.CountDocuments(ctx, bson.D{{"guild_id", guildId}})
-	if commandsCount != 0 {
-		t.Fail()
-	}
+	assert.Equal(t, int64(0), commandsCount)
 
 	configColl := db.Collection("guild_config")
 	configCount, err := configColl.CountDocuments(ctx, bson.D{{"guild_id", guildId}})
-	if configCount != 0 {
-		t.Fail()
-	}
+	assert.Equal(t, int64(0), configCount)
 }

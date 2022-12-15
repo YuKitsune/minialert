@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/yukitsune/minialert/db"
 	"github.com/yukitsune/minialert/prometheus"
 	"github.com/yukitsune/minialert/scraper"
@@ -76,9 +77,7 @@ func TestGetAlertsGetsAlertsFromPrometheus(t *testing.T) {
 	}
 
 	err := repo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	value := "foo"
 	alerts := prometheus.Alerts{
@@ -91,14 +90,11 @@ func TestGetAlertsGetsAlertsFromPrometheus(t *testing.T) {
 
 	// Act
 	foundAlerts, err := GetAlerts(ctx, repo, clientFactory, guildId, configName)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
-	if foundAlerts[0].Value != value {
-		t.Fail()
-	}
+	assert.Len(t, foundAlerts, 1)
+	assert.Equal(t, value, foundAlerts[0].Value)
 }
 
 func TestGetAlertsFiltersInhibitedAlerts(t *testing.T) {
@@ -130,9 +126,7 @@ func TestGetAlertsFiltersInhibitedAlerts(t *testing.T) {
 	}
 
 	err := repo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	value := "foo"
 	valueToFilter := "bar"
@@ -157,18 +151,11 @@ func TestGetAlertsFiltersInhibitedAlerts(t *testing.T) {
 
 	// Act
 	foundAlerts, err := GetAlerts(ctx, repo, clientFactory, guildId, configName)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
-	if len(foundAlerts) != 1 {
-		t.Fail()
-	}
-
-	if foundAlerts[0].Value != value {
-		t.Fail()
-	}
+	assert.Len(t, foundAlerts, 1)
+	assert.Equal(t, foundAlerts[0].Value, value)
 }
 
 func TestInhibitAlertUpdatesConfig(t *testing.T) {
@@ -196,34 +183,23 @@ func TestInhibitAlertUpdatesConfig(t *testing.T) {
 	}
 
 	err := repo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Act
 	alertName := "fizz"
 	err = InhibitAlert(ctx, configName, guildId, alertName, repo)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
 	guildConfig, err = repo.GetGuildConfig(ctx, guildId)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	scrapeConfig, ok := slices.FindMatching(guildConfig.ScrapeConfigs, func(c db.ScrapeConfig) bool {
 		return c.Name == configName
 	})
 
-	if !ok {
-		t.Fail()
-	}
-
-	if !slices.Contains(scrapeConfig.InhibitedAlerts, alertName) {
-		t.Fail()
-	}
+	assert.True(t, ok)
+	assert.Contains(t, scrapeConfig.InhibitedAlerts, alertName)
 }
 
 func TestUninhibitAlertUpdatesConfig(t *testing.T) {
@@ -252,33 +228,22 @@ func TestUninhibitAlertUpdatesConfig(t *testing.T) {
 	}
 
 	err := repo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Act
 	err = UninhibitAlert(ctx, configName, guildId, alertName, repo)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
 	guildConfig, err = repo.GetGuildConfig(ctx, guildId)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	scrapeConfig, ok := slices.FindMatching(guildConfig.ScrapeConfigs, func(c db.ScrapeConfig) bool {
 		return c.Name == configName
 	})
 
-	if !ok {
-		t.Fail()
-	}
-
-	if len(scrapeConfig.InhibitedAlerts) != 0 {
-		t.Fail()
-	}
+	assert.True(t, ok)
+	assert.Empty(t, scrapeConfig.InhibitedAlerts)
 }
 
 func TestGetInhibitionsGetsInhibitions(t *testing.T) {
@@ -307,24 +272,15 @@ func TestGetInhibitionsGetsInhibitions(t *testing.T) {
 	}
 
 	err := repo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Act
 	alertNames, err := GetInhibitions(ctx, configName, guildId, repo)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
-	if len(alertNames) != 1 {
-		t.Fail()
-	}
-
-	if alertNames[0] != alertName {
-		t.Fail()
-	}
+	assert.Len(t, alertNames, 1)
+	assert.Equal(t, alertNames[0], alertName)
 }
 
 // Todo: CreateScrapeConfigCreatesScrapeConfig
@@ -357,21 +313,16 @@ func TestRemoveScrapeConfigRemovesScrapeConfig(t *testing.T) {
 	}
 
 	err := repo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Act
 	err = RemoveScrapeConfig(ctx, repo, scrapeManager, guildId, configName)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
 	guildConfig, err = repo.GetGuildConfig(ctx, guildId)
-	if len(guildConfig.ScrapeConfigs) != 0 {
-		t.Fail()
-	}
+	assert.NoError(t, err)
+	assert.Empty(t, guildConfig.ScrapeConfigs)
 }
 
 func TestRemoveScrapeConfigStopsScraper(t *testing.T) {
@@ -400,25 +351,17 @@ func TestRemoveScrapeConfigStopsScraper(t *testing.T) {
 	}
 
 	err := repo.SetGuildConfig(ctx, guildConfig)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	scrapeManager.Start(guildId, &scrapeConfig)
 
 	// Sanity check
-	if len(scrapeManager.ActiveScrapers) != 1 {
-		t.Fail()
-	}
+	assert.Len(t, scrapeManager.ActiveScrapers, 1)
 
 	// Act
 	err = RemoveScrapeConfig(ctx, repo, scrapeManager, guildId, configName)
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err)
 
 	// Assert
-	if len(scrapeManager.ActiveScrapers) != 0 {
-		t.Fail()
-	}
+	assert.Empty(t, scrapeManager.ActiveScrapers)
 }
