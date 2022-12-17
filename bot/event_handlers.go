@@ -60,15 +60,21 @@ func onGuildCreated(commands []*discordgo.ApplicationCommand, repo db.Repo, logg
 		ctxLogger := logger.WithField("guild_id", i.Guild.ID)
 		ctxLogger.Infoln("Guild created")
 
-		ctxLogger.Debugln("Creating config...")
+		cfg, _ := repo.GetGuildConfig(ctx, i.Guild.ID)
+		if cfg == nil {
 
-		cfg := db.NewGuildConfig(i.Guild.ID)
-		err := repo.SetGuildConfig(ctx, cfg)
-		if err != nil {
-			ctxLogger.Errorf("Failed to set guild config: %v", err.Error())
+			ctxLogger.Debugln("Creating config...")
+
+			cfg = db.NewGuildConfig(i.Guild.ID)
+			err := repo.SetGuildConfig(ctx, cfg)
+			if err != nil {
+				ctxLogger.Errorf("Failed to set guild config: %v", err.Error())
+			}
+
+			ctxLogger.Debugln("Config created")
+		} else {
+			ctxLogger.Debugln("Config already exists...")
 		}
-
-		ctxLogger.Debugln("Config created")
 
 		ctxLogger.Debugln("Creating commands...")
 
