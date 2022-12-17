@@ -12,6 +12,7 @@ const (
 	UninhibitAlertCommandName      InteractionName = "uninhibit-alert"
 
 	CreateScrapeConfigCommandName InteractionName = "create-scrape-config"
+	ListScrapeConfigsCommandName  InteractionName = "list-scrape-configs"
 	UpdateScrapeConfigCommandName InteractionName = "update-scrape-config"
 	RemoveScrapeConfigCommandName InteractionName = "remove-scrape-config"
 )
@@ -153,6 +154,10 @@ func getCommands() []*discordgo.ApplicationCommand {
 					Required:    true,
 				},
 			},
+		},
+		{
+			Name:        ListScrapeConfigsCommandName.String(),
+			Description: "Lists all scrape configs",
 		},
 		configCommand(false),
 		configCommand(true),

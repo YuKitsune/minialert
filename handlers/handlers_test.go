@@ -286,6 +286,43 @@ func TestGetInhibitionsGetsInhibitions(t *testing.T) {
 // Todo: CreateScrapeConfigCreatesScrapeConfig
 // Todo: CreateScrapeConfigStartsScraper
 
+func TestGetScrapeConfigs(t *testing.T) {
+
+	// Arrange
+	ctx := context.Background()
+	logger := logrus.New()
+	repo := db.SetupInMemoryDatabase(logger)
+
+	guildId := "foo"
+	configName := "bar"
+	alertName := "zig"
+	guildConfig := &db.GuildConfig{
+		GuildId: guildId,
+		ScrapeConfigs: []db.ScrapeConfig{
+			{
+				Name:                  configName,
+				Endpoint:              "",
+				Username:              "",
+				Password:              "",
+				ScrapeIntervalMinutes: 0,
+				AlertChannelId:        "",
+				InhibitedAlerts:       []string{alertName},
+			},
+		},
+	}
+
+	err := repo.SetGuildConfig(ctx, guildConfig)
+	assert.NoError(t, err)
+
+	// Act
+	foundScrapeConfigs, err := GetScrapeConfigs(ctx, repo, guildId)
+	assert.NoError(t, err)
+
+	// Assert
+	assert.Len(t, foundScrapeConfigs, 1)
+	assert.Equal(t, foundScrapeConfigs[0].Name, configName)
+}
+
 func TestRemoveScrapeConfigRemovesScrapeConfig(t *testing.T) {
 
 	// Arrange

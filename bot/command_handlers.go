@@ -63,6 +63,7 @@ func getInteractionHandlers(repo db.Repo, clientFactory prometheus.ClientFactory
 		InhibitAlertCommandName:        inhibitAlertHandler(repo),
 		UninhibitAlertCommandName:      uninhibitAlertHandler(repo),
 
+		ListScrapeConfigsCommandName:  listScrapeConfigsCommandHandler(repo),
 		CreateScrapeConfigCommandName: createScrapeConfigCommandHandler(repo, scrapeManager),
 		UpdateScrapeConfigCommandName: updateScrapeConfigCommandHandler(repo, scrapeManager),
 		RemoveScrapeConfigCommandName: removeScrapeConfigCommandHandler(repo, scrapeManager),
@@ -396,6 +397,27 @@ func updateScrapeConfigCommandHandler(repo db.Repo, scrapeManager scraper.Scrape
 		}
 
 		respondWithSuccess(s, i, logger, "Start config updated.")
+	}
+}
+
+func listScrapeConfigsCommandHandler(repo db.Repo) InteractionHandler {
+	return func(s *discordgo.Session, i *discordgo.InteractionCreate, logger logrus.FieldLogger) {
+
+		ctx := context.TODO()
+
+		scrapeConfigs, err := handlers.GetScrapeConfigs(ctx, repo, i.GuildID)
+		if err != nil {
+			logger.Errorf("Failed to get scrape configs: %s", err.Error())
+			respondWithError(s, i, logger, "Failed to get scrape configs.")
+			return
+		}
+
+		var names []string
+		for _, config := range scrapeConfigs {
+			names = append(names, config.Name)
+		}
+
+		respond(s, i, logger, strings.Join(names, ", "))
 	}
 }
 
