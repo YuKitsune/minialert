@@ -58,7 +58,7 @@ func onGuildCreated(commands []*discordgo.ApplicationCommand, repo db.Repo, logg
 		ctx := context.TODO()
 
 		ctxLogger := logger.WithField("guild_id", i.Guild.ID)
-		ctxLogger.Debugln("Guild created")
+		ctxLogger.Infoln("Guild created")
 
 		ctxLogger.Debugln("Creating config...")
 
@@ -94,7 +94,7 @@ func onGuildDeleted(repo db.Repo, logger logrus.FieldLogger) func(s *discordgo.S
 	return func(s *discordgo.Session, i *discordgo.GuildDelete) {
 
 		ctxLogger := logger.WithField("guild_id", i.Guild.ID)
-		ctxLogger.Debugln("Guild deleted")
+		ctxLogger.Infoln("Guild deleted")
 
 		ctx := context.TODO()
 
