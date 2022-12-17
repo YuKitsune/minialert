@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/yukitsune/minialert/config"
 	"github.com/yukitsune/minialert/db"
+	"github.com/yukitsune/minialert/prometheus"
 	"github.com/yukitsune/minialert/scraper"
 	"strings"
 )
@@ -15,7 +16,7 @@ type Bot struct {
 	cfg                          config.Bot
 	session                      *discordgo.Session
 	repo                         db.Repo
-	scrapeManager                *scraper.ScrapeManager
+	scrapeManager                scraper.ScrapeManager
 	doneChan                     chan bool
 	commands                     []*discordgo.ApplicationCommand
 	interactionHandlers          InteractionHandlers
@@ -23,9 +24,9 @@ type Bot struct {
 	logger                       logrus.FieldLogger
 }
 
-func New(cfg config.Bot, repo db.Repo, scrapeManager *scraper.ScrapeManager, logger logrus.FieldLogger) *Bot {
+func New(cfg config.Bot, repo db.Repo, clientFactory prometheus.ClientFactory, scrapeManager scraper.ScrapeManager, logger logrus.FieldLogger) *Bot {
 	commands := getCommands()
-	interactionHandlers := getInteractionHandlers(repo, scrapeManager)
+	interactionHandlers := getInteractionHandlers(repo, clientFactory, scrapeManager)
 	componentInteractionHandlers := getMessageInteractionHandlers(repo)
 
 	return &Bot{

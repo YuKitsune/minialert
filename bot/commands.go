@@ -24,7 +24,6 @@ type InteractionOption string
 
 const (
 	ChannelOption          InteractionOption = "channel"
-	UserOption             InteractionOption = "user"
 	AlertNameOption        InteractionOption = "alertname"
 	ScrapeConfigNameOption InteractionOption = "scrape-config-name"
 	EndpointOption         InteractionOption = "endpoint"
@@ -37,7 +36,7 @@ func (c InteractionOption) String() string {
 	return string(c)
 }
 
-func getConfigCommand(create bool) *discordgo.ApplicationCommand {
+func configCommand(create bool) *discordgo.ApplicationCommand {
 
 	var name = UpdateScrapeConfigCommandName.String()
 	if create {
@@ -155,8 +154,8 @@ func getCommands() []*discordgo.ApplicationCommand {
 				},
 			},
 		},
-		getConfigCommand(false),
-		getConfigCommand(true),
+		configCommand(false),
+		configCommand(true),
 		{
 			Name:        RemoveScrapeConfigCommandName.String(),
 			Description: "Removes a scrape config",

@@ -1,4 +1,4 @@
-package util
+package slices
 
 func HasMatching[T any](ts []T, fn func(v T) bool) bool {
 	for _, t := range ts {
@@ -10,10 +10,11 @@ func HasMatching[T any](ts []T, fn func(v T) bool) bool {
 	return false
 }
 
-func RemoveMatching[T any](s []T, match func(t T) bool) []T {
+func RemoveMatches[T any](s []T, match func(t T) bool) []T {
 	for i, t := range s {
 		if match(t) {
-			Remove(s, i)
+			s[i] = s[len(s)-1]
+			s = s[:len(s)-1]
 		}
 	}
 
@@ -21,16 +22,21 @@ func RemoveMatching[T any](s []T, match func(t T) bool) []T {
 }
 
 func FindMatching[T any](s []T, match func(t T) bool) (*T, bool) {
-	for _, t := range s {
+	for i, t := range s {
 		if match(t) {
-			return &t, true
+			return &s[i], true
 		}
 	}
 
 	return nil, false
 }
 
-func Remove[T any](s []T, i int) []T {
-	s[i] = s[len(s)-1]
-	return s[:len(s)-1]
+func Contains[T comparable](s []T, exp T) bool {
+	for _, elem := range s {
+		if elem == exp {
+			return true
+		}
+	}
+
+	return false
 }

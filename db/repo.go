@@ -29,23 +29,19 @@ func NewGuildConfig(guildId string) *GuildConfig {
 }
 
 type ScrapeConfig struct {
-	Name                  string       `bson:"scrape_name"`
-	Endpoint              string       `bson:"endpoint"`
-	Username              string       `bson:"username"`
-	Password              string       `bson:"password"`
-	ScrapeIntervalMinutes int64        `bson:"scrape_interval_minutes"`
-	AlertChannelId        string       `bson:"alert_channel_id"`
-	Inhibitions           []Inhibition `bson:"inhibitions"`
+	Name                  string   `bson:"scrape_name"`
+	Endpoint              string   `bson:"endpoint"`
+	Username              string   `bson:"username"`
+	Password              string   `bson:"password"`
+	ScrapeIntervalMinutes int64    `bson:"scrape_interval_minutes"`
+	AlertChannelId        string   `bson:"alert_channel_id"`
+	InhibitedAlerts       []string `bson:"inhibited_alerts"`
 }
 
 type CommandRegistration struct {
 	GuildId     string `bson:"guild_id"`
 	CommandId   string `bson:"command_id"`
 	CommandName string `bson:"command_name"`
-}
-
-type Inhibition struct {
-	AlertName string `bson:"alert_name"`
 }
 
 type Callback func(ctx context.Context, db *mongo.Database) error
@@ -57,6 +53,5 @@ type Repo interface {
 	GetGuildConfigs(ctx context.Context) ([]GuildConfig, error)
 	GetGuildConfig(ctx context.Context, guildId string) (*GuildConfig, error)
 	SetGuildConfig(ctx context.Context, config *GuildConfig) error
-	DeleteGuildConfig(ctx context.Context, guildId string) error
 	ClearGuildInfo(ctx context.Context, guildId string) error
 }

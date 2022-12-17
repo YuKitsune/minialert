@@ -7,7 +7,7 @@ import (
 	"github.com/yukitsune/minialert/db"
 	"github.com/yukitsune/minialert/prometheus"
 	"github.com/yukitsune/minialert/scraper"
-	"github.com/yukitsune/minialert/util"
+	"github.com/yukitsune/minialert/slices"
 	"strconv"
 )
 
@@ -24,7 +24,7 @@ func getFieldsFromLabels(alert prometheus.Alert) []*discordgo.MessageEmbedField 
 	return fields
 }
 
-func watchAlerts(done chan bool, s *discordgo.Session, repo db.Repo, scrapeManager *scraper.ScrapeManager, logger logrus.FieldLogger) {
+func watchAlerts(done chan bool, s *discordgo.Session, repo db.Repo, scrapeManager scraper.ScrapeManager, logger logrus.FieldLogger) {
 	for {
 		select {
 		case results := <-scrapeManager.Chan():
@@ -37,7 +37,7 @@ func watchAlerts(done chan bool, s *discordgo.Session, repo db.Repo, scrapeManag
 				return
 			}
 
-			scrapeConfig, ok := util.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
+			scrapeConfig, ok := slices.FindMatching(guildConfig.ScrapeConfigs, func(cfg db.ScrapeConfig) bool {
 				return cfg.Name == results.ScrapeConfigName
 			})
 
@@ -46,13 +46,13 @@ func watchAlerts(done chan bool, s *discordgo.Session, repo db.Repo, scrapeManag
 				return
 			}
 
-			filteredAlerts, err := filterAlerts(results.Alerts, scrapeConfig.Inhibitions)
+			filteredAlerts, err := prometheus.FilterAlerts(results.Alerts, scrapeConfig.InhibitedAlerts)
 			if err != nil {
 				logger.Errorf("Failed to filter alerts: %s", err.Error())
 				continue
 			}
 
-			sendAlertsToChannel(s, scrapeConfig, filteredAlerts, logger)
+			sendAlertsToChannel(s, scrapeConfig.Name, scrapeConfig.AlertChannelId, filteredAlerts, logger)
 
 		case <-done:
 			logger.Debug("Stopping watchAlerts")
@@ -61,7 +61,7 @@ func watchAlerts(done chan bool, s *discordgo.Session, repo db.Repo, scrapeManag
 	}
 }
 
-func sendAlertsToChannel(s *discordgo.Session, scrapeConfig *db.ScrapeConfig, alerts prometheus.Alerts, logger logrus.FieldLogger) {
+func sendAlertsToChannel(s *discordgo.Session, configName string, channelId string, alerts prometheus.Alerts, logger logrus.FieldLogger) {
 	for _, alert := range alerts {
 
 		alertName := alert.Labels["alertname"]
@@ -89,7 +89,7 @@ func sendAlertsToChannel(s *discordgo.Session, scrapeConfig *db.ScrapeConfig, al
 		inhibitButtonComponent := discordgo.Button{
 			Label:    "Inhibit",
 			Style:    discordgo.DangerButton,
-			CustomID: NewMessageInteractionId(InhibitAlertCommandName, scrapeConfig.Name, alertName).String(),
+			CustomID: NewMessageInteractionId(InhibitAlertCommandName, configName, alertName).String(),
 		}
 
 		message := &discordgo.MessageSend{
@@ -103,26 +103,11 @@ func sendAlertsToChannel(s *discordgo.Session, scrapeConfig *db.ScrapeConfig, al
 			},
 		}
 
-		_, err = s.ChannelMessageSendComplex(scrapeConfig.AlertChannelId, message)
+		_, err = s.ChannelMessageSendComplex(channelId, message)
 		if err != nil {
-			logger.Errorf("Failed to send message to channel %s: %s\n", scrapeConfig.AlertChannelId, err.Error())
+			logger.Errorf("Failed to send message to channel %s: %s\n", channelId, err.Error())
 		}
 	}
-}
-
-func filterAlerts(alerts prometheus.Alerts, inhibitions []db.Inhibition) (prometheus.Alerts, error) {
-
-	var newAlerts prometheus.Alerts
-	for _, alert := range alerts {
-		if !util.HasMatching(inhibitions, func(inhibition db.Inhibition) bool {
-			alertName := alert.Labels["alertname"]
-			return inhibition.AlertName == alertName
-		}) {
-			newAlerts = append(newAlerts, alert)
-		}
-	}
-
-	return newAlerts, nil
 }
 
 func getColorFromSeverity(severity string) (int64, error) {

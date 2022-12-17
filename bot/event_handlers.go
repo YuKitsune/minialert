@@ -80,7 +80,7 @@ func onGuildCreated(commands []*discordgo.ApplicationCommand, repo db.Repo, logg
 			}
 
 			ctxLogger.Debugf("Created '%v' command", v.Name)
-			err = repo.RegisterCommand(context.Background(), i.Guild.ID, cmd.ID, cmd.Name)
+			err = repo.RegisterCommand(ctx, i.Guild.ID, cmd.ID, cmd.Name)
 			if err != nil {
 				ctxLogger.Errorf("Failed to register command: %s", err.Error())
 			}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/yukitsune/minialert/db"
+	"github.com/yukitsune/minialert/slices"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -31,25 +32,31 @@ type BasicAuthDetails struct {
 	Password string
 }
 
-type Client struct {
+type Client interface {
+	GetAlerts() (Alerts, error)
+}
+
+type ClientFactory func(config *db.ScrapeConfig) Client
+
+type httpClient struct {
 	client           http.Client
 	endpoint         string
 	basicAuthDetails *BasicAuthDetails
 }
 
-func NewPrometheusClient(client http.Client, endpoint string) *Client {
+func NewPrometheusClient(client http.Client, endpoint string) Client {
 	return NewPrometheusClientWithBasicAuth(client, endpoint, nil)
 }
 
-func NewPrometheusClientWithBasicAuth(client http.Client, endpoint string, creds *BasicAuthDetails) *Client {
-	return &Client{
+func NewPrometheusClientWithBasicAuth(client http.Client, endpoint string, creds *BasicAuthDetails) Client {
+	return &httpClient{
 		client:           client,
 		endpoint:         endpoint,
 		basicAuthDetails: creds,
 	}
 }
 
-func NewPrometheusClientFromScrapeConfig(config *db.ScrapeConfig) *Client {
+func NewClientFromScrapeConfig(config *db.ScrapeConfig) Client {
 	client := http.Client{
 		Timeout: 10 * time.Second,
 	}
@@ -61,7 +68,7 @@ func NewPrometheusClientFromScrapeConfig(config *db.ScrapeConfig) *Client {
 	return NewPrometheusClient(client, config.Endpoint)
 }
 
-func (c *Client) GetAlerts() (Alerts, error) {
+func (c *httpClient) GetAlerts() (Alerts, error) {
 	req, err := http.NewRequest("GET", c.endpoint, bytes.NewReader([]byte{}))
 	if err != nil {
 		return nil, err
@@ -90,4 +97,19 @@ func (c *Client) GetAlerts() (Alerts, error) {
 	}
 
 	return resData.Data.Alerts, nil
+}
+
+func FilterAlerts(alerts Alerts, inhibitedAlerts []string) (Alerts, error) {
+
+	var newAlerts Alerts
+	for _, alert := range alerts {
+		if !slices.HasMatching(inhibitedAlerts, func(inhibitedAlert string) bool {
+			alertName := alert.Labels["alertname"]
+			return inhibitedAlert == alertName
+		}) {
+			newAlerts = append(newAlerts, alert)
+		}
+	}
+
+	return newAlerts, nil
 }
