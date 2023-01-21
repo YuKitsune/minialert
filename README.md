@@ -7,7 +7,7 @@
 
   Designed as an alternative to <a href="https://github.com/prometheus/alertmanager">Alertmanager</a>.
 
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/yukitsune/minialert/Build%20and%20Test)](https://github.com/yukitsune/minialert/actions?query=workflow:Build%20and%20Test)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/yukitsune/minialert/ci.yml?branch=main)](https://github.com/YuKitsune/minialert/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/yukitsune/minialert)](https://goreportcard.com/report/github.com/yukitsune/minialert)
 [![License](https://img.shields.io/github/license/YuKitsune/minialert)](https://github.com/YuKitsune/minialert/blob/main/LICENSE)
 [![Latest Release](https://img.shields.io/github/v/release/YuKitsune/minialert?include_prereleases)](https://github.com/YuKitsune/minialert/releases)
